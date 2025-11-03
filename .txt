@@ -1,0 +1,162 @@
+Project Overview
+Lixnet Marketplace is a full-stack e-commerce platform built with Laravel 12 (backend) and React (frontend) using the Inertia.js framework for seamless SPA-like experience. It's designed as a marketplace where users can browse products, manage carts, place orders, and includes an agent system for sales commissions.
+
+Technology Stack
+
+Backend (Laravel 12)
+
+Framework: Laravel 12.0
+PHP Version: 8.2+
+Database: MySQL 8+
+Authentication: Laravel Sanctum/Breeze
+Frontend Integration: Inertia.js v2.0
+Payment Gateway: Pesapal integration
+Queue System: Laravel Queues
+Caching: Laravel Cache (with Redis support)
+Mail: Laravel Mail
+
+Frontend (React + TypeScript)
+
+React: v19.0.0
+TypeScript: v5.7.2
+Build Tool: Vite v7.0.4
+Styling: TailwindCSS v4.1.13
+UI Components: Radix UI, Headless UI
+State Management: React Context API
+Routing: React Router DOM v7.8.2
+Charts: Recharts v3.2.1
+Notifications: React Hot Toast v2.6.0
+
+Development Tools
+Linting: ESLint v9.17.0
+Formatting: Prettier v3.4.2
+Testing: PHPUnit v11.5.3, Pest
+Package Management: Composer, npm
+
+Core Features
+1. User Management
+Roles: Customer, Agent, Admin
+Authentication: Email/password with email verification
+Profiles: User profiles with phone, company info
+Agent Applications: Students can apply to become sales agents
+2. Product Catalog
+Categories: Hierarchical product categories with slugs
+Products: Title, description, price, ratings, notes
+Search & Filtering: Search by title/description, filter by category
+Featured Products: Highlighted products
+3. Shopping Cart
+Guest Carts: Session-based carts for unauthenticated users
+User Carts: Persistent carts for logged-in users
+Cart Items: Quantity management, total calculations
+4. Order Management
+Order Creation: From cart items with customer details
+Payment Integration: Pesapal payment gateway
+Order Status: Pending, Paid, Failed, Cancelled
+Order History: Complete order tracking
+5. Agent System
+Agent Applications: Student verification process
+Agent Tiers: Bronze (0-25K), Silver (25K-50K), Gold (50K+)
+Commissions: Tier-based commission rates (10%, 20%, 30%)
+Sales Tracking: Agent-specific sales and commission history
+6. Admin Panel
+User Management: View and manage all users
+Agent Applications: Approve/reject agent applications
+Product Management: CRUD operations for products
+Category Management: CRUD operations for categories
+
+Database Schema
+
+Core Tables
+users: Authentication, roles, profile info
+categories: Product categories with slugs
+products: Product catalog with pricing and ratings
+carts: Shopping carts (user/session based)
+cart_items: Individual cart items
+orders: Order records with payment info
+order_items: Order line items
+
+Agent System Tables
+
+agent_applications: Agent application submissions
+agents: Approved agents with codes
+agent_tiers: Commission tier definitions
+commissions: Commission tracking per period
+
+API Structure
+
+Public APIs
+Categories: List, show, show by slug
+Products: List, search, filter, featured, show
+Cart: View cart (public access)
+
+Customer APIs
+Cart: Add/update/remove items, clear cart
+Orders: Create, list, show, initiate payment
+User: Profile management, order history, account deletion
+Agent Applications: Submit and check status
+
+Agent APIs
+Dashboard: Agent statistics and data
+Sales: Sales data and details
+
+Admin APIs
+Categories: Full CRUD
+Products: Full CRUD
+Users: List, show, orders
+Agent Applications: List, show, approve/reject, download documents
+
+Payment Integration (Pesapal)
+Service Class: PesapalService handles all payment operations
+Features:
+Access token management with caching
+IPN (Instant Payment Notification) registration
+Order request submission
+Transaction status checking
+Callback processing
+Configuration: Sandbox/production modes, callback URLs
+
+Frontend Pages
+
+Public Pages
+Marketplace: Product browsing and search
+Cart: Shopping cart management
+
+Customer Pages
+Checkout: Order placement
+Profile: User profile management
+Orders: Order history
+Sales Registration: Agent application form
+
+Agent Pages
+Dashboard: Agent overview and stats
+Sales: Sales performance
+Sales Detail: Individual order details
+
+Admin Pages
+Dashboard: Admin overview
+Users List: User management
+User Details: Individual user info
+Agent Applications: Application management
+
+Security & Middleware
+Authentication Middleware: auth, verified
+Role-based Access: admin, agent, customer middleware
+CSRF Protection: Laravel's built-in CSRF
+Input Validation: Request classes for validation
+File Uploads: Secure document uploads for agent applications
+
+Development Setup
+
+Requirements: PHP 8.2+, Composer, Node.js 18+, MySQL 8+
+Installation: Clone, install dependencies, configure .env
+Database: Create database, run migrations and seeders
+Development Server: composer run dev (runs Laravel, queues, logs, Vite concurrently)
+
+Key Business Logic
+
+Commission Calculation: Based on agent tiers and sales volume
+Order Processing: Cart to order conversion with payment integration
+Agent Onboarding: Application review process with document verification
+Product Management: Category-based organization with search capabilities
+This project represents a complete e-commerce solution with advanced features like agent commissions, payment processing, and role-based access control, built with modern web technologies.
+
