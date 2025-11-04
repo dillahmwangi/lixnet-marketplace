@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AgentApplicationController as AdminAgentApplicationController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\Agent\DashboardController;
 use App\Http\Controllers\Agent\SalesController;
@@ -120,6 +121,9 @@ Route::middleware(['web', 'auth', 'agent'])->prefix('agent')->name('agent.')->gr
 */
 
 Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('admin')->group(function () {
+    // Dashboard
+    Route::get('/dashboard', [AdminDashboardController::class, 'index']);
+
     // Category management (admin only)
     Route::prefix('categories')->group(function () {
         Route::post('/', [CategoryController::class, 'store']);
@@ -137,7 +141,9 @@ Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('admin')->group(
     // User management (admin only)
     Route::prefix('users')->group(function () {
         Route::get('/', [AdminUserController::class, 'index'])->name('admin.users.index');
+        Route::post('/', [AdminUserController::class, 'store'])->name('admin.users.store');
         Route::get('/{user}', [AdminUserController::class, 'show'])->name('admin.users.show');
+        Route::put('/{user}', [AdminUserController::class, 'update'])->name('admin.users.update');
         Route::get('/{user}/orders', [AdminUserController::class, 'orders'])->name('admin.users.orders');
     });
 
