@@ -114,6 +114,17 @@ export function MarketplaceHeader({
 
                     {/* Header Actions */}
                     <div className="flex items-center gap-4">
+                        {/* Admin Tab - Only visible to admin users */}
+                        {isAuthenticated && user?.role === 'admin' && (
+                            <Button
+                                variant="ghost"
+                                onClick={() => window.location.href = '/dashboard'}
+                                className="text-blue-100 hover:text-card-color hover:bg-[#0052a3] text-sm font-medium"
+                            >
+                                Admin
+                            </Button>
+                        )}
+
                         {/* Language */}
                         <div className="flex items-center text-sm text-blue-100 hover:text-card-color cursor-pointer">
                             <Globe className="w-4 h-4 mr-1" />

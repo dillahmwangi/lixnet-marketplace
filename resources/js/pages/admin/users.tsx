@@ -114,6 +114,31 @@ export default function AdminUsers() {
         setSearch(value);
     };
 
+    const handleRoleChange = async (userId: number, newRole: string) => {
+        try {
+            const response = await axios.put(`/api/admin/users/${userId}`, {
+                role: newRole,
+            }, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            toast.success('User role updated successfully');
+
+            // Update the user in the local state
+            setUsers(prevUsers =>
+                prevUsers.map(user =>
+                    user.id === userId ? { ...user, role: newRole } : user
+                )
+            );
+        } catch (err: any) {
+            const errorMessage = err.response?.data?.message || 'Failed to update user role';
+            toast.error(errorMessage);
+        }
+    };
+
     const handleViewUser = (userId: number) => {
         window.location.href = `/admin/users-list/${userId}`;
     };
@@ -241,9 +266,19 @@ export default function AdminUsers() {
                                                     </td>
                                                     <td className="px-6 py-4 text-sm">{user.email}</td>
                                                     <td className="px-6 py-4">
-                                                        <Badge variant={getRoleBadgeVariant(user.role)}>
-                                                            {user.role}
-                                                        </Badge>
+                                                        <Select
+                                                            value={user.role}
+                                                            onValueChange={(newRole) => handleRoleChange(user.id, newRole)}
+                                                        >
+                                                            <SelectTrigger className="w-24">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="user">User</SelectItem>
+                                                                <SelectItem value="agent">Agent</SelectItem>
+                                                                <SelectItem value="admin">Admin</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
                                                     </td>
                                                     <td className="px-6 py-4 text-sm">{user.company || '-'}</td>
                                                     <td className="px-6 py-4 text-right text-sm">
