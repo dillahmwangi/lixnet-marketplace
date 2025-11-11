@@ -168,10 +168,10 @@ export function MarketplaceHeader({
                             <ShoppingCart className="w-4 h-4 mr-1" />
                             <span>Cart</span>
                             {cartState.totalItems > 0 && (
-                                <Badge className="absolute -top-2 -right-2 bg-red-500 text-card-color text-xs px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
-                                    {cartState.totalItems}
-                                </Badge>
-                            )}
+    <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border border-white">
+        {cartState.totalItems}
+    </div>
+)}
                         </Button>
                     </div>
                 </div>
