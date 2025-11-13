@@ -23,7 +23,7 @@ class ProductSeeder extends Seeder
                 'category' => 'payroll-hr',
                 'title' => 'Evolve Payroll & HR System',
                 'description' => 'Complete payroll & HR solution with NHIF, NSSF, KRA tax, and compliance reports.',
-                'price' => 15999,
+                'price' => 100,
                 'rating' => 4.5,
                 'rating_count' => 2524,
                 'note' => 'Handles all Kenyan compliance'
@@ -116,7 +116,7 @@ class ProductSeeder extends Seeder
         ];
 
         foreach ($products as $p) {
-            Product::firstOrCreate(
+            Product::updateOrCreate(
                 ['title' => $p['title']],
                 [
                     'category_id' => $bySlug($p['category']),
