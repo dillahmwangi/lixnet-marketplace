@@ -163,4 +163,65 @@ class AdminUserController extends Controller
             'orders' => $orders,
         ]);
     }
+
+    /**
+     * Update the specified user.
+     */
+    public function update(Request $request, User $user)
+    {
+        $request->validate([
+            'role' => 'required|in:admin,agent,user',
+        ]);
+
+        $user->update([
+            'role' => $request->role,
+        ]);
+
+        return response()->json([
+            'message' => 'User role updated successfully',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+            ],
+        ]);
+    }
+
+    /**
+     * Create a new user with admin role.
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8',
+            'role' => 'required|in:admin,agent,user',
+            'phone' => 'nullable|string|max:20',
+            'company' => 'nullable|string|max:255',
+        ]);
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => bcrypt($request->password),
+            'role' => $request->role,
+            'phone' => $request->phone,
+            'company' => $request->company,
+        ]);
+
+        return response()->json([
+            'message' => 'User created successfully',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'phone' => $user->phone,
+                'company' => $user->company,
+                'created_at' => $user->created_at,
+            ],
+        ], 201);
+    }
 }

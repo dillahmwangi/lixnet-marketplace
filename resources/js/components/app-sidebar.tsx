@@ -5,10 +5,10 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, User, UserPen, Users } from 'lucide-react';
+import { BookOpen, Folder, LayoutGrid, ShoppingCart, User, UserPen, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 import { useAuth } from '@/context/auth-context';
-import { use, useEffect } from 'react';
+import { useEffect } from 'react';
 
 
 export function AppSidebar() {
@@ -24,6 +24,11 @@ export function AppSidebar() {
                 title: 'Dashboard',
                 href: dashboard(),
                 icon: LayoutGrid,
+            },
+            {
+                title: 'Marketplace',
+                href: '/',
+                icon: ShoppingCart,
             },
             {
                 title: 'User Management',
