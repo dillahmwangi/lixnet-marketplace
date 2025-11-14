@@ -32,7 +32,7 @@ class PesapalCallbackController extends Controller
                 'body' => $request->all()
             ]);
 
-            // Get callback data - Pesapal sends data in query params for GET requests
+            // Get callback data - Pesapal can send data in query params or body
             $callbackData = $request->method() === 'GET' ? $request->query() : $request->all();
 
             if (!isset($callbackData['OrderTrackingId'])) {
@@ -68,12 +68,13 @@ class PesapalCallbackController extends Controller
 
             $order->update($updateData);
 
-            Log::info('Order status updated', [
+            Log::info('Order status updated from callback', [
                 'order_id' => $order->id,
                 'order_reference' => $order->order_reference,
                 'old_status' => $order->getOriginal('status'),
                 'new_status' => $callbackResult['order_status'],
-                'payment_reference' => $callbackResult['order_tracking_id']
+                'payment_reference' => $callbackResult['order_tracking_id'],
+                'payment_status_code' => $callbackResult['payment_status_code']
             ]);
 
             // Return success response to Pesapal
@@ -112,14 +113,16 @@ class PesapalCallbackController extends Controller
             ]);
 
             if (!$orderTrackingId) {
-                return redirect('/orders')->with('error', 'Payment confirmation failed');
+                Log::warning('Confirmation missing OrderTrackingId');
+                return redirect(config('app.url') . '/checkout?payment=failed');
             }
 
             // Find the order
             $order = Order::where('payment_reference', $orderTrackingId)->first();
 
             if (!$order) {
-                return redirect('/orders')->with('error', 'Order not found');
+                Log::warning('Order not found during confirmation', ['order_tracking_id' => $orderTrackingId]);
+                return redirect(config('app.url') . '/checkout?payment=failed');
             }
 
             // Get latest transaction status from Pesapal
@@ -153,27 +156,31 @@ class PesapalCallbackController extends Controller
                 }
             }
 
-            // Redirect to frontend orders page with status
-            $baseUrl = config('app.url', config('app.url'));
-            $redirectUrl = $baseUrl . '/orders';
+            // Redirect to frontend with status
+            $baseUrl = config('app.url');
+            $redirectUrl = $baseUrl . '/orders/' . $order->id;
 
             if ($order->status === 'paid') {
                 $redirectUrl .= '?payment=success';
             } elseif ($order->status === 'failed') {
                 $redirectUrl .= '?payment=failed';
+            } elseif ($order->status === 'cancelled') {
+                $redirectUrl .= '?payment=cancelled';
             } else {
                 $redirectUrl .= '?payment=pending';
             }
 
-            Log::info('Redirecting user after payment', [
+            Log::info('Redirecting user after payment confirmation', [
                 'redirect_url' => $redirectUrl,
                 'order_status' => $order->status
             ]);
 
             return redirect($redirectUrl);
         } catch (\Exception $e) {
-            Log::error('Payment confirmation exception: ' . $e->getMessage());
-            return redirect('/orders')->with('error', 'Payment confirmation failed');
+            Log::error('Payment confirmation exception: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return redirect(config('app.url') . '/checkout?payment=failed');
         }
     }
 }

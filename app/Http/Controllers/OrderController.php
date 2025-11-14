@@ -8,10 +8,11 @@ use App\Models\OrderItem;
 use App\Models\Cart;
 use App\Services\PesapalService;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -25,7 +26,7 @@ class OrderController extends Controller
     /**
      * Create order from checkout
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         try {
             $validator = Validator::make($request->all(), [
@@ -55,7 +56,7 @@ class OrderController extends Controller
 
             try {
                 // Generate unique order reference
-                $orderReference = $this->generateOrderReference();
+                $orderReference = Order::generateReference();
 
                 // Create order
                 $order = Order::create([
@@ -91,53 +92,10 @@ class OrderController extends Controller
                 // Load order with items and products for response
                 $order->load(['items.product.category', 'user']);
 
-                // Prepare payment data for Pesapal
-                $paymentData = [
-                    'id' => $order->order_reference,
-                    'currency' => $order->currency,
-                    'amount' => $order->total_amount,
-                    'description' => "Payment for Order #{$order->order_reference}",
-                    'callback_url' => config('app.url') . '/api/pesapal/confirm',
-                    'redirect_mode' => 'PARENT_WINDOW',
-                    'notification_id' => config('pesapal.notification_id'),
-                    'billing_address' => [
-                        'email_address' => $order->email,
-                        'phone_number' => $order->phone,
-                        'first_name' => explode(' ', $order->full_name)[0] ?? '',
-                        'last_name' => explode(' ', $order->full_name, 2)[1] ?? '',
-                    ]
-                ];
-
-                // Call Pesapal service to get payment URL
-                $paymentResponse = $this->pesapalService->submitOrderRequest($paymentData);
-
-                if (!$paymentResponse['success']) {
-                    // For development/testing, return success with mock payment URL
-                    if (config('app.debug') || config('pesapal.sandbox')) {
-                        return response()->json([
-                            'success' => true,
-                            'message' => 'Order created successfully (Sandbox mode - payment simulation)',
-                            'data' => [
-                                'order' => $order,
-                                'payment_url' => config('app.url') . '/orders?payment=success&order=' . $order->id,
-                                'order_tracking_id' => 'SANDBOX-' . $order->order_reference
-                            ]
-                        ], 201);
-                    }
-
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Order created but payment initiation failed',
-                        'error' => $paymentResponse['error'] ?? 'Payment service error',
-                        'data' => [
-                            'order' => $order
-                        ]
-                    ], 500);
-                }
-
-                // Update order with payment reference
-                $order->update([
-                    'payment_reference' => $paymentResponse['order_tracking_id']
+                Log::info('Order created successfully', [
+                    'order_id' => $order->id,
+                    'order_reference' => $order->order_reference,
+                    'user_id' => Auth::id()
                 ]);
 
                 return response()->json([
@@ -151,6 +109,7 @@ class OrderController extends Controller
                 ], 201);
             } catch (\Exception $e) {
                 DB::rollback();
+                Log::error('Error creating order items: ' . $e->getMessage());
                 throw $e;
             }
         } catch (\Exception $e) {
@@ -165,7 +124,7 @@ class OrderController extends Controller
     /**
      * Get user's orders
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         try {
             $perPage = $request->get('per_page', 15);
@@ -187,6 +146,7 @@ class OrderController extends Controller
                 'data' => $orders
             ]);
         } catch (\Exception $e) {
+            Log::error('Error retrieving orders: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve orders',
@@ -198,7 +158,7 @@ class OrderController extends Controller
     /**
      * Get single order
      */
-    public function show($id)
+    public function show($id): JsonResponse
     {
         try {
             $order = Order::where('user_id', Auth::id())
@@ -213,6 +173,7 @@ class OrderController extends Controller
                 ]
             ]);
         } catch (\Exception $e) {
+            Log::error('Error retrieving order: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Order not found',
@@ -224,14 +185,22 @@ class OrderController extends Controller
     /**
      * Initiate payment for order
      */
-    public function initiatePayment($id)
+    public function initiatePayment($id): JsonResponse
     {
         try {
+            Log::info('Initiating payment for order', ['order_id' => $id, 'user_id' => Auth::id()]);
+
             $order = Order::where('user_id', Auth::id())
                 ->findOrFail($id);
 
-            // Check if order is in correct status
-            if ($order->status !== 'pending') {
+            // Check if order can be paid
+            if (!$order->canPay()) {
+                Log::warning('Order cannot be paid', [
+                    'order_id' => $order->id,
+                    'status' => $order->status,
+                    'amount' => $order->total_amount
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Order cannot be paid. Invalid status: ' . $order->status
@@ -242,11 +211,10 @@ class OrderController extends Controller
             $paymentData = [
                 'id' => $order->order_reference,
                 'currency' => $order->currency,
-                'amount' => $order->total_amount,
+                'amount' => (float)$order->total_amount,
                 'description' => "Payment for Order #{$order->order_reference}",
-                'callback_url' => config('app.url') . '/api/pesapal/confirm',
-                'redirect_mode' => 'PARENT_WINDOW',
-                'notification_id' => config('pesapal.notification_id'),
+                'callback_url' => config('pesapal.callback_url'),
+                'redirect_mode' => config('pesapal.redirect_mode'),
                 'billing_address' => [
                     'email_address' => $order->email,
                     'phone_number' => $order->phone,
@@ -255,10 +223,18 @@ class OrderController extends Controller
                 ]
             ];
 
+            Log::info('Submitting order to PesaPal', [
+                'order_id' => $order->id,
+                'amount' => $order->total_amount,
+                'currency' => $order->currency
+            ]);
+
             // Call Pesapal service to get payment URL
             $paymentResponse = $this->pesapalService->submitOrderRequest($paymentData);
 
             if (!$paymentResponse['success']) {
+                Log::error('Failed to get payment URL from Pesapal', $paymentResponse);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to initiate payment',
@@ -271,6 +247,11 @@ class OrderController extends Controller
                 'payment_reference' => $paymentResponse['order_tracking_id']
             ]);
 
+            Log::info('Payment initiated successfully', [
+                'order_id' => $order->id,
+                'order_tracking_id' => $paymentResponse['order_tracking_id']
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Payment initiated successfully',
@@ -280,6 +261,10 @@ class OrderController extends Controller
                 ]
             ]);
         } catch (\Exception $e) {
+            Log::error('Error initiating payment: ' . $e->getMessage(), [
+                'exception' => $e
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to initiate payment',
@@ -289,14 +274,34 @@ class OrderController extends Controller
     }
 
     /**
-     * Generate unique order reference
+     * Get order by order reference
      */
-    private function generateOrderReference(): string
+    public function getByReference($reference): JsonResponse
     {
-        do {
-            $reference = 'ORD-' . strtoupper(Str::random(8)) . '-' . time();
-        } while (Order::where('order_reference', $reference)->exists());
+        try {
+            $order = Order::where('order_reference', $reference)
+                ->with(['items.product.category', 'user'])
+                ->firstOrFail();
 
-        return $reference;
+            // Check if user owns the order
+            if ($order->user_id !== Auth::id()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 403);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Order retrieved successfully',
+                'data' => ['order' => $order]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error retrieving order by reference: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found'
+            ], 404);
+        }
     }
 }

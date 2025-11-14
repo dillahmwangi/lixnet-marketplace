@@ -1,0 +1,36 @@
+* [33m78e1d3e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mjoshua[m[33m, [m[1;31morigin/joshua[m[33m, [m[1;31mnew-origin/main[m[33m, [m[1;32mmain[m[33m)[m footer done
+* [33m8e78e05[m redone the admin integration and footer
+[31m|[m *   [33m3bfcc00[m[33m ([m[1;31morigin/dev[m[33m)[m Merge branch 'dev' of github.com:dillahmwangi/lixnet-marketplace into dev
+[31m|[m [32m|[m[33m\[m  
+[31m|[m [32m|[m *   [33mdae2b35[m Merge pull request #2 from dillahmwangi/joshua
+[31m|[m [32m|[m [34m|[m[31m\[m  
+[31m|[m [32m|[m[31m_[m[34m|[m[31m/[m  
+[31m|[m[31m/[m[32m|[m [34m|[m   
+* [32m|[m [34m|[m [33m508ad96[m advanced admin integration
+* [32m|[m [34m|[m [33mc8219f7[m added user roles and more admin integration
+* [32m|[m [34m|[m [33m9946212[m added joshua branch
+[35m|[m * [34m|[m [33m8f57bf8[m Payments with Actual Pesapal credentials functioning
+[35m|[m [34m|[m[34m/[m  
+[35m|[m * [33m76ace8d[m[33m ([m[1;31morigin/Sophie-CommerceFeatures[m[33m)[m Pesapal Integration for Mpesa & Card complete
+[35m|[m * [33me7fd625[m Multiple Payment Options added
+[35m|[m[35m/[m  
+[35m|[m * [33m556eef1[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m project name change
+[35m|[m[35m/[m  
+* [33me25fbf1[m[33m ([m[1;31mnew-origin/master[m[33m, [m[1;32mmaster[m[33m)[m Completed agent dashboard and sales pages, up next subscription and cart modifications for new payment system
+* [33m4efcae5[m created necessary migrations for our future features, modified and made more middlewares to ensure RBAC for our separate user roles
+* [33mfbf2ebc[m modified work
+*   [33m2e7094d[m Merge branch 'master' of github.com:Njau-dev/lixnet-marketplace
+[1;31m|[m[1;32m\[m  
+[1;31m|[m * [33m94af56d[m Added favicon and updated app.blade.php for favicon support
+[1;31m|[m * [33m8c6d359[m Updated favicon
+[1;31m|[m * [33m6dbe72f[m Update README.md
+[1;31m|[m * [33mbe1c151[m Create README.md
+* [1;32m|[m [33me8d0b6e[m Admin agent application and application/rejection feature page done
+* [1;32m|[m [33m3ad0d22[m Sales agent registration done, admin users management and user details page done as well
+* [1;32m|[m [33me8caab0[m small modifications before deploy
+[1;32m|[m[1;32m/[m  
+* [33m163f8cf[m Users RBAC done, pesapal payment gatewar added, orders page added and profile page as well
+* [33ma1eb7b0[m deploy ready
+* [33m2b04eef[m mvp views and features complete, next up accounts
+* [33m24ddaf6[m mvp apis and controllers done
+* [33m871e1ae[m First commit, project intialized and migration, models and seeders setup
