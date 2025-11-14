@@ -39,7 +39,8 @@ class OrderController extends Controller
                 'items.*.quantity' => 'required|integer|min:1',
                 'items.*.unit_price' => 'required|numeric|min:0',
                 'total_amount' => 'required|numeric|min:0',
-                'currency' => 'required|string|in:KES,USD'
+                'currency' => 'required|string|in:KES,USD',
+                'payment_method' => 'nullable|string|in:pesapal'
             ]);
 
             if ($validator->fails()) {
@@ -67,6 +68,7 @@ class OrderController extends Controller
                     'notes' => $request->notes,
                     'total_amount' => $request->total_amount,
                     'currency' => $request->currency ?? 'KES',
+                    'payment_method' => $request->payment_method ?? 'pesapal',
                     'status' => 'pending',
                 ]);
 
@@ -89,11 +91,62 @@ class OrderController extends Controller
                 // Load order with items and products for response
                 $order->load(['items.product.category', 'user']);
 
+                // Prepare payment data for Pesapal
+                $paymentData = [
+                    'id' => $order->order_reference,
+                    'currency' => $order->currency,
+                    'amount' => $order->total_amount,
+                    'description' => "Payment for Order #{$order->order_reference}",
+                    'callback_url' => config('app.url') . '/api/pesapal/confirm',
+                    'redirect_mode' => 'PARENT_WINDOW',
+                    'notification_id' => config('pesapal.notification_id'),
+                    'billing_address' => [
+                        'email_address' => $order->email,
+                        'phone_number' => $order->phone,
+                        'first_name' => explode(' ', $order->full_name)[0] ?? '',
+                        'last_name' => explode(' ', $order->full_name, 2)[1] ?? '',
+                    ]
+                ];
+
+                // Call Pesapal service to get payment URL
+                $paymentResponse = $this->pesapalService->submitOrderRequest($paymentData);
+
+                if (!$paymentResponse['success']) {
+                    // For development/testing, return success with mock payment URL
+                    if (config('app.debug') || config('pesapal.sandbox')) {
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Order created successfully (Sandbox mode - payment simulation)',
+                            'data' => [
+                                'order' => $order,
+                                'payment_url' => config('app.url') . '/orders?payment=success&order=' . $order->id,
+                                'order_tracking_id' => 'SANDBOX-' . $order->order_reference
+                            ]
+                        ], 201);
+                    }
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Order created but payment initiation failed',
+                        'error' => $paymentResponse['error'] ?? 'Payment service error',
+                        'data' => [
+                            'order' => $order
+                        ]
+                    ], 500);
+                }
+
+                // Update order with payment reference
+                $order->update([
+                    'payment_reference' => $paymentResponse['order_tracking_id']
+                ]);
+
                 return response()->json([
                     'success' => true,
-                    'message' => 'Order created successfully',
+                    'message' => 'Order created and payment initiated successfully',
                     'data' => [
-                        'order' => $order
+                        'order' => $order,
+                        'payment_url' => $paymentResponse['redirect_url'],
+                        'order_tracking_id' => $paymentResponse['order_tracking_id']
                     ]
                 ], 201);
             } catch (\Exception $e) {

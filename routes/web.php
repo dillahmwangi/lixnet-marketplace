@@ -14,6 +14,16 @@ Route::get('/', function () {
     return Inertia::render('Marketplace');
 })->name('marketplace');
 
+Route::get('/careers', function () {
+    return Inertia::render('Careers');
+})->name('careers');
+
+Route::get('/careers/{job}', function (App\Models\Job $job) {
+    return Inertia::render('JobDetail', [
+        'job' => $job,
+    ]);
+})->name('careers.show');
+
 Route::get('/cart', function () {
     return Inertia::render('Cart');
 })->name('cart');
@@ -26,9 +36,6 @@ Route::get('/cart', function () {
 */
 
 Route::middleware(['auth', 'customer'])->group(function () {
-    Route::get('/checkout', function () {
-        return Inertia::render('user/Checkout');
-    })->name('checkout');
 
     Route::get('/profile', function () {
         return Inertia::render('user/Profile');
@@ -103,6 +110,56 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
             'applicationId' => $application->id,
         ]);
     })->name('agent-applications.show');
+
+    // Categories management
+    Route::get('categories', function () {
+        return Inertia::render('admin/categories');
+    })->name('categories');
+
+    Route::get('categories/create', function () {
+        return Inertia::render('admin/category-create');
+    })->name('categories.create');
+
+    Route::get('categories/{category}/edit', function (App\Models\Category $category) {
+        return Inertia::render('admin/category-edit', [
+            'category' => $category,
+        ]);
+    })->name('categories.edit');
+
+    // Products management
+    Route::get('products', function () {
+        return Inertia::render('admin/products');
+    })->name('products');
+
+    Route::get('products/create', function () {
+        return Inertia::render('admin/product-create');
+    })->name('products.create');
+
+    Route::get('products/{product}/edit', function (App\Models\Product $product) {
+        return Inertia::render('admin/product-edit', [
+            'product' => $product->load('category'),
+        ]);
+    })->name('products.edit');
+
+    // Jobs management
+    Route::get('jobs', function () {
+        return Inertia::render('admin/jobs');
+    })->name('jobs');
+
+    Route::get('jobs/create', function () {
+        return Inertia::render('admin/job-create');
+    })->name('jobs.create');
+
+    Route::get('jobs/{job}/edit', function (App\Models\Job $job) {
+        return Inertia::render('admin/job-edit', [
+            'job' => $job,
+        ]);
+    })->name('jobs.edit');
+
+    // Job applications management
+    Route::get('job-applications', function () {
+        return Inertia::render('admin/job-applications');
+    })->name('job-applications');
 });
 
 require __DIR__.'/settings.php';

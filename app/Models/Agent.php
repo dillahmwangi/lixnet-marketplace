@@ -15,6 +15,13 @@ class Agent extends Model
         'application_id',
         'agent_code',
         'is_active',
+        'tier_id',
+        'bank_name',
+        'account_holder_name',
+        'account_number',
+        'branch_code',
+        'swift_code',
+        'bank_address',
     ];
 
     protected $casts = [

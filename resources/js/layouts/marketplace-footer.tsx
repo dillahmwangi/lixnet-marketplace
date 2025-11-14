@@ -1,9 +1,17 @@
 import { ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { router } from '@inertiajs/react';
 
 export function MarketplaceFooter() {
     const scrollToTop = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleLinkClick = (link: string) => {
+        if (link === 'Careers') {
+            router.visit('/careers');
+        }
+        // Add other link handlers as needed
     };
 
     const footerLinks = {
@@ -50,7 +58,10 @@ export function MarketplaceFooter() {
                                 <ul className="space-y-2">
                                     {links.map((link, index) => (
                                         <li key={index}>
-                                            <button className="text-gray-300 text-sm hover:text-white hover:underline transition-colors text-left">
+                                            <button
+                                                onClick={() => handleLinkClick(link)}
+                                                className="text-gray-300 text-sm hover:text-white hover:underline transition-colors text-left"
+                                            >
                                                 {link}
                                             </button>
                                         </li>
