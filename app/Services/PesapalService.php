@@ -34,14 +34,6 @@ class PesapalService
                 return $cachedToken;
             }
 
-            // Check if credentials are set
-            if (!$this->consumerKey || !$this->consumerSecret ||
-                $this->consumerKey === 'your_consumer_key_here' ||
-                $this->consumerSecret === 'your_consumer_secret_here') {
-                Log::error('Pesapal credentials not configured properly');
-                return null;
-            }
-
             Log::info('Requesting new Pesapal access token');
 
             $response = Http::withoutVerifying()
