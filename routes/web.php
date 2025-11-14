@@ -14,6 +14,22 @@ Route::get('/', function () {
     return Inertia::render('Marketplace');
 })->name('marketplace');
 
+Route::get('/about', function () {
+    return Inertia::render('About');
+})->name('about');
+
+Route::get('/sell-products', function () {
+    return Inertia::render('SellProducts');
+})->name('sell-products');
+
+Route::get('/affiliate', function () {
+    return Inertia::render('Affiliate');
+})->name('affiliate');
+
+Route::get('/help', function () {
+    return Inertia::render('Help');
+})->name('help');
+
 Route::get('/careers', function () {
     return Inertia::render('Careers');
 })->name('careers');
@@ -36,6 +52,10 @@ Route::get('/cart', function () {
 */
 
 Route::middleware(['auth', 'customer'])->group(function () {
+
+    Route::get('/account', function () {
+        return Inertia::render('Account');
+    })->name('account');
 
     Route::get('/profile', function () {
         return Inertia::render('user/Profile');

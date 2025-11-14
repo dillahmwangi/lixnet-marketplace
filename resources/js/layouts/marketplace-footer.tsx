@@ -10,6 +10,16 @@ export function MarketplaceFooter() {
     const handleLinkClick = (link: string) => {
         if (link === 'Careers') {
             router.visit('/careers');
+        } else if (link === 'About Lixnet') {
+            router.visit('/about');
+        } else if (link === 'Sell products on Lixnet') {
+            router.visit('/sell-products');
+        } else if (link === 'Become an Affiliate') {
+            router.visit('/affiliate');
+        } else if (link === 'Your Account') {
+            router.visit('/account');
+        } else if (link === 'Help & Support') {
+            router.visit('/help');
         }
         // Add other link handlers as needed
     };
