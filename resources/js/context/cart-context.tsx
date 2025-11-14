@@ -262,7 +262,7 @@ export function CartProvider({ children }: CartProviderProps) {
             clearCartFromStorage();
             await loadCart(true); // Force authenticated load
 
-            toast.success('Cart synced successfully');
+            toast.success('Cart synced successfully!');
         } catch (error) {
             console.error('Failed to sync cart:', error);
             toast.error('Failed to sync cart');
@@ -285,12 +285,12 @@ export function CartProvider({ children }: CartProviderProps) {
                 if (response.data.success) {
                     // Reload cart from database to get fresh data
                     await loadCart(true);
-                    toast.success('Item added to cart');
+                    toast.success('Product added to cart successfully!');
                 }
             } else {
                 // Add to localStorage only
                 dispatch({ type: 'ADD_ITEM_LOCAL', payload: { product, quantity } });
-                toast.success('Item added to cart');
+                toast.success('Product added to cart successfully!');
             }
         } catch (error) {
             console.error('Failed to add item:', error);
@@ -308,11 +308,11 @@ export function CartProvider({ children }: CartProviderProps) {
                 await axios.delete(`/api/cart/items/${itemId}`);
                 // Reload cart from database
                 await loadCart(true);
-                toast.success('Item removed from cart');
+                toast.success('Product removed from cart successfully!');
             } else {
                 // Remove from localStorage only
                 dispatch({ type: 'REMOVE_ITEM_LOCAL', payload: itemId });
-                toast.success('Item removed from cart');
+                toast.success('Product removed from cart successfully!');
             }
         } catch (error) {
             console.error('Failed to remove item:', error);
@@ -358,7 +358,7 @@ export function CartProvider({ children }: CartProviderProps) {
             // Always clear localStorage and local state
             clearCartFromStorage();
             dispatch({ type: 'CLEAR_CART_LOCAL' });
-            toast.success('Cart cleared');
+            toast.success('Cart cleared successfully!');
         } catch (error) {
             console.error('Failed to clear cart:', error);
             // Still clear local state

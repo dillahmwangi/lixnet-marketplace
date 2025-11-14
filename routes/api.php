@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\Agent\DashboardController;
 use App\Http\Controllers\Agent\SalesController;
+use App\Http\Controllers\Agent\ProfileController;
 use App\Http\Controllers\AgentApplicationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PesapalCallbackController;
@@ -12,6 +13,8 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\JobController;
+use App\Http\Controllers\JobApplicationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -49,6 +52,17 @@ Route::prefix('products')->group(function () {
 
 Route::prefix('cart')->group(function () {
     Route::get('/view', [CartController::class, 'index']);
+});
+
+// Jobs (public access)
+Route::prefix('jobs')->group(function () {
+    Route::get('/', [JobController::class, 'index']);
+    Route::get('/{job}', [JobController::class, 'show']);
+});
+
+// Job applications (public)
+Route::prefix('job-applications')->group(function () {
+    Route::post('/', [JobApplicationController::class, 'store']);
 });
 
 // Pesapal callback routes (must be public for webhook access)
@@ -109,6 +123,10 @@ Route::middleware(['web', 'auth', 'agent'])->prefix('agent')->name('agent.')->gr
     // Dashboard
     Route::get('dashboard-ui', [DashboardController::class, 'index'])->name('dashboard-ui');
 
+    // Profile
+    Route::get('profile', [ProfileController::class, 'show'])->name('profile.show');
+    Route::put('profile', [ProfileController::class, 'update'])->name('profile.update');
+
     // Sales
     Route::get('sales-data', [SalesController::class, 'index'])->name('sales.index');
     Route::get('sales-data/{orderId}', [SalesController::class, 'show'])->name('sales.show');
@@ -154,5 +172,23 @@ Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('admin')->group(
         Route::post('/{application}/approve', [AdminAgentApplicationController::class, 'approve'])->name('admin.agent-applications.approve');
         Route::post('/{application}/reject', [AdminAgentApplicationController::class, 'reject'])->name('admin.agent-applications.reject');
         Route::get('/{application}/documents/{documentType}', [AdminAgentApplicationController::class, 'downloadDocument'])->name('admin.agent-applications.download-documents');
+    });
+
+    // Job management (admin only)
+    Route::prefix('jobs')->group(function () {
+        Route::get('/', [JobController::class, 'adminIndex']);
+        Route::post('/', [JobController::class, 'store']);
+        Route::get('/{job}', [JobController::class, 'show']);
+        Route::put('/{job}', [JobController::class, 'update']);
+        Route::delete('/{job}', [JobController::class, 'destroy']);
+    });
+
+    // Job applications management (admin only)
+    Route::prefix('job-applications')->group(function () {
+        Route::get('/', [JobApplicationController::class, 'index']);
+        Route::get('/{application}', [JobApplicationController::class, 'show']);
+        Route::put('/{application}', [JobApplicationController::class, 'update']);
+        Route::delete('/{application}', [JobApplicationController::class, 'destroy']);
+        Route::get('/{application}/download-resume', [JobApplicationController::class, 'downloadResume']);
     });
 });

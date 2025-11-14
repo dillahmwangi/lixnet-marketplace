@@ -5,7 +5,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, ShoppingCart, User, UserPen, Users } from 'lucide-react';
+import { BookOpen, Folder, LayoutGrid, ShoppingCart, User, UserPen, Users, Briefcase } from 'lucide-react';
 import AppLogo from './app-logo';
 import { useAuth } from '@/context/auth-context';
 import { useEffect } from 'react';
@@ -44,6 +44,34 @@ export function AppSidebar() {
                     {
                         title: 'Agent Applications',
                         href: '/admin/agent-applications',
+                        icon: UserPen,
+                    },
+                    {
+                        title: 'Categories',
+                        href: '/admin/categories',
+                        icon: Folder,
+                    },
+                    {
+                        title: 'Products',
+                        href: '/admin/products',
+                        icon: ShoppingCart,
+                    },
+                ],
+            },
+            {
+                title: 'Job Management',
+                icon: Briefcase,
+                href: '/admin/jobs',
+                dropdown: true,
+                items: [
+                    {
+                        title: 'Jobs',
+                        href: '/admin/jobs',
+                        icon: Briefcase,
+                    },
+                    {
+                        title: 'Job Applications',
+                        href: '/admin/job-applications',
                         icon: UserPen,
                     },
                 ],
