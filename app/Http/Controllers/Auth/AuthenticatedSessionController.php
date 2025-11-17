@@ -30,13 +30,17 @@ class AuthenticatedSessionController extends Controller
     public function store(LoginRequest $request)
     {
         $request->authenticate();
-        $request->session()->regenerate();
 
         $user = Auth::user();
 
+        // For API requests (mobile), return JSON with JWT token
         if ($request->expectsJson()) {
+            $token = $user->createToken('mobile-app')->plainTextToken;
+
             return response()->json([
+                'success' => true,
                 'user' => $user,
+                'token' => $token,
                 'redirect' => $user->role === 'admin'
                     ? route('dashboard')
                     : ($user->role === 'agent'
@@ -44,6 +48,9 @@ class AuthenticatedSessionController extends Controller
                         : route('marketplace')),
             ]);
         }
+
+        // For web requests, handle session
+        $request->session()->regenerate();
 
         $redirectRoute = null;
 
@@ -74,6 +81,7 @@ class AuthenticatedSessionController extends Controller
 
         if ($request->expectsJson()) {
             return response()->json([
+                'success' => true,
                 'message' => 'Logged out',
                 'redirect' => route('login')
             ]);

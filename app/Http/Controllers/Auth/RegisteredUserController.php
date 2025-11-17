@@ -46,7 +46,9 @@ class RegisteredUserController extends Controller
 
         if ($request->expectsJson()) {
             return response()->json([
+                'success' => true,
                 'user' => $user,
+                'token' => $request->session()->getId(), // Use session ID as token for web auth
                 'redirect' => route('marketplace'),
             ]);
         }

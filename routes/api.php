@@ -15,6 +15,10 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\JobApplicationController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\NewPasswordController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -30,19 +34,28 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
+// Mobile App Authentication Routes (No CSRF, No Web Middleware)
+Route::middleware([])->group(function () {
+    Route::post('/login', [AuthenticatedSessionController::class, 'store']);
+    Route::post('/register', [RegisteredUserController::class, 'store']);
+    Route::post('/logout', [AuthenticatedSessionController::class, 'destroy']);
+    Route::post('/forgot-password', [PasswordResetLinkController::class, 'store']);
+    Route::post('/reset-password', [NewPasswordController::class, 'store']);
+});
+
 Route::middleware(['web', 'auth'])->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// Categories
-Route::prefix('categories')->group(function () {
+// Categories (public access for mobile)
+Route::prefix('categories')->middleware([])->group(function () {
     Route::get('/', [CategoryController::class, 'index']);
     Route::get('/{category}', [CategoryController::class, 'show']);
     Route::get('/slug/{slug}', [CategoryController::class, 'showBySlug']);
 });
 
-// Products
-Route::prefix('products')->group(function () {
+// Products (public access for mobile)
+Route::prefix('products')->middleware([])->group(function () {
     Route::get('/', [ProductController::class, 'index']);
     Route::get('/search', [ProductController::class, 'search']);
     Route::get('/filter', [ProductController::class, 'filterByCategory']);
@@ -50,7 +63,7 @@ Route::prefix('products')->group(function () {
     Route::get('/{product}', [ProductController::class, 'show']);
 });
 
-Route::prefix('cart')->group(function () {
+Route::prefix('cart')->middleware([])->group(function () {
     Route::get('/view', [CartController::class, 'index']);
 });
 
@@ -77,7 +90,7 @@ Route::prefix('pesapal')->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['web', 'auth', 'customer'])->group(function () {
+Route::middleware(['auth:sanctum'])->group(function () {
     // Cart management
     Route::prefix('cart')->group(function () {
         Route::get('/get', [CartController::class, 'index']);
