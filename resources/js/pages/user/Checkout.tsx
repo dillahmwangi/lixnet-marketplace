@@ -6,22 +6,17 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
     ShoppingBag,
     User,
     CreditCard,
     Lock,
-    CheckCircle,
     Briefcase,
     PiggyBank,
     GraduationCap,
     Calculator,
     Truck,
-    ArrowLeft,
-    Shield,
-    Smartphone,
-    Building2
+    ArrowLeft
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCart } from '@/context/cart-context';
@@ -40,8 +35,6 @@ interface CheckoutFormData {
     notes: string;
 }
 
-type PaymentMethod = 'mpesa' | 'card' | 'bank';
-
 export default function Checkout() {
     const { state } = useCart();
     const { user, isLoading, checkAuth, logout } = useAuth();
@@ -52,24 +45,8 @@ export default function Checkout() {
         company: '',
         notes: ''
     });
-    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('mpesa');
     const [isProcessing, setIsProcessing] = useState(false);
     const [formErrors, setFormErrors] = useState<Partial<CheckoutFormData>>({});
-
-    // Payment form states
-    const [mpesaPhone, setMpesaPhone] = useState('');
-    const [cardDetails, setCardDetails] = useState({
-        cardNumber: '',
-        cardName: '',
-        expiryMonth: '',
-        expiryYear: '',
-        cvv: ''
-    });
-    const [bankDetails, setBankDetails] = useState({
-        accountNumber: '',
-        accountName: '',
-        bankName: ''
-    });
 
     useEffect(() => {
         checkAuth();
@@ -91,7 +68,6 @@ export default function Checkout() {
                 phone: user.phone || '',
                 company: user.company || ''
             }));
-            setMpesaPhone(user.phone || '');
         }
     }, [user, isLoading]);
 
@@ -144,38 +120,6 @@ export default function Checkout() {
         return Object.keys(errors).length === 0;
     };
 
-    const validatePaymentDetails = () => {
-        if (selectedPaymentMethod === 'mpesa') {
-            if (!mpesaPhone.trim()) {
-                toast.error('M-Pesa phone number is required');
-                return false;
-            }
-            if (!/^(\+254|0)[17]\d{8}$/.test(mpesaPhone.replace(/\s/g, ''))) {
-                toast.error('Please enter a valid M-Pesa phone number');
-                return false;
-            }
-        } else if (selectedPaymentMethod === 'card') {
-            if (!cardDetails.cardNumber || !cardDetails.cardName || !cardDetails.expiryMonth || !cardDetails.expiryYear || !cardDetails.cvv) {
-                toast.error('Please fill in all card details');
-                return false;
-            }
-            if (cardDetails.cardNumber.replace(/\s/g, '').length !== 16) {
-                toast.error('Please enter a valid 16-digit card number');
-                return false;
-            }
-            if (cardDetails.cvv.length !== 3) {
-                toast.error('Please enter a valid 3-digit CVV');
-                return false;
-            }
-        } else if (selectedPaymentMethod === 'bank') {
-            if (!bankDetails.accountNumber || !bankDetails.accountName || !bankDetails.bankName) {
-                toast.error('Please fill in all bank transfer details');
-                return false;
-            }
-        }
-        return true;
-    };
-
     const handleInputChange = (field: keyof CheckoutFormData, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
         if (formErrors[field]) {
@@ -187,20 +131,15 @@ export default function Checkout() {
         router.visit('/cart');
     };
 
-    const formatCardNumber = (value: string) => {
-        const cleaned = value.replace(/\s/g, '');
-        const chunks = cleaned.match(/.{1,4}/g);
-        return chunks ? chunks.join(' ') : cleaned;
-    };
-
     const handlePlaceOrder = async () => {
-        if (!validateForm() || !validatePaymentDetails()) {
+        if (!validateForm()) {
             return;
         }
 
         setIsProcessing(true);
 
         try {
+            // Step 1: Create the order WITHOUT payment_method
             const orderData = {
                 full_name: formData.fullName,
                 email: formData.email,
@@ -213,11 +152,7 @@ export default function Checkout() {
                     unit_price: item.product.price
                 })),
                 total_amount: state.totalValue,
-                currency: 'KES',
-                payment_method: selectedPaymentMethod,
-                payment_details: selectedPaymentMethod === 'mpesa' ? { phone: mpesaPhone } :
-                    selectedPaymentMethod === 'card' ? cardDetails :
-                        bankDetails
+                currency: 'KES'
             };
 
             const orderResponse = await axios.post('/api/orders', orderData);
@@ -229,6 +164,7 @@ export default function Checkout() {
             const order = orderResponse.data.data.order;
             toast.success("Order created successfully! Initiating payment...");
 
+            // Step 2: Initiate payment
             const paymentResponse = await axios.post(`/api/orders/${order.id}/pay`);
 
             if (!paymentResponse.data.success) {
@@ -398,206 +334,19 @@ export default function Checkout() {
                             </CardContent>
                         </Card>
 
-                        {/* Payment Method */}
+                        {/* Payment Information */}
                         <Card className="bg-card-color text-text-dark border border-border-color">
                             <CardHeader>
                                 <CardTitle className="flex items-center">
                                     <CreditCard className="w-5 h-5 mr-2 text-brand-blue" />
-                                    Payment Method
+                                    Payment
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <RadioGroup value={selectedPaymentMethod} onValueChange={(value) => setSelectedPaymentMethod(value as PaymentMethod)}>
-                                    {/* M-Pesa Option */}
-                                    <div className={`border rounded-lg p-4 cursor-pointer transition-all ${selectedPaymentMethod === 'mpesa' ? 'border-green-500 bg-green-50' : 'border-border-color'}`}
-                                        onClick={() => setSelectedPaymentMethod('mpesa')}>
-                                        <div className="flex items-center space-x-3">
-                                            <RadioGroupItem value="mpesa" id="mpesa" />
-                                            <div className="flex items-center space-x-3 flex-1">
-                                                <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
-                                                    <Smartphone className="w-5 h-5 text-white" />
-                                                </div>
-                                                <div>
-                                                    <Label htmlFor="mpesa" className="font-semibold cursor-pointer">M-Pesa</Label>
-                                                    <p className="text-xs text-gray-600">Pay with mobile money</p>
-                                                </div>
-                                            </div>
-                                            {selectedPaymentMethod === 'mpesa' && <CheckCircle className="w-5 h-5 text-green-600" />}
-                                        </div>
-                                    </div>
-
-                                    {/* Card Option */}
-                                    <div className={`border rounded-lg p-4 cursor-pointer transition-all ${selectedPaymentMethod === 'card' ? 'border-blue-500 bg-blue-50' : 'border-border-color'}`}
-                                        onClick={() => setSelectedPaymentMethod('card')}>
-                                        <div className="flex items-center space-x-3">
-                                            <RadioGroupItem value="card" id="card" />
-                                            <div className="flex items-center space-x-3 flex-1">
-                                                <div className="w-10 h-10 bg-[#1E3A8A] rounded-lg flex items-center justify-center">
-                                                    <CreditCard className="w-5 h-5 text-white" />
-                                                </div>
-                                                <div>
-                                                    <Label htmlFor="card" className="font-semibold cursor-pointer">Credit/Debit Card</Label>
-                                                    <p className="text-xs text-gray-600">Visa, Mastercard, Amex</p>
-                                                </div>
-                                            </div>
-                                            {selectedPaymentMethod === 'card' && <CheckCircle className="w-5 h-5 text-blue-600" />}
-                                        </div>
-                                    </div>
-
-                                    {/* Bank Transfer Option */}
-                                    <div className={`border rounded-lg p-4 cursor-pointer transition-all ${selectedPaymentMethod === 'bank' ? 'border-purple-500 bg-purple-50' : 'border-border-color'}`}
-                                        onClick={() => setSelectedPaymentMethod('bank')}>
-                                        <div className="flex items-center space-x-3">
-                                            <RadioGroupItem value="bank" id="bank" />
-                                            <div className="flex items-center space-x-3 flex-1">
-                                                <div className="w-10 h-10 bg-[#374151] rounded-lg flex items-center justify-center">
-                                                    <Building2 className="w-5 h-5 text-white" />
-                                                </div>
-                                                <div>
-                                                    <Label htmlFor="bank" className="font-semibold cursor-pointer">Bank Transfer</Label>
-                                                    <p className="text-xs text-gray-600">Direct bank payment</p>
-                                                </div>
-                                            </div>
-                                            {selectedPaymentMethod === 'bank' && <CheckCircle className="w-5 h-5 text-purple-600" />}
-                                        </div>
-                                    </div>
-                                </RadioGroup>
-
-                                {/* Payment Details Forms */}
-                                <div className="mt-4">
-                                    {selectedPaymentMethod === 'mpesa' && (
-                                        <div className="space-y-4 p-4 border border-green-200 rounded-lg bg-green-50">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="mpesaPhone">M-Pesa Phone Number *</Label>
-                                                <Input
-                                                    id="mpesaPhone"
-                                                    type="tel"
-                                                    value={mpesaPhone}
-                                                    onChange={(e) => setMpesaPhone(e.target.value)}
-                                                    className="bg-white border-green-300"
-                                                    placeholder="e.g., +254712345678"
-                                                />
-                                                <p className="text-xs text-green-700">Enter your M-Pesa registered phone number</p>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedPaymentMethod === 'card' && (
-                                        <div className="space-y-4 p-4 border border-blue-200 rounded-lg bg-blue-50">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="cardNumber">Card Number *</Label>
-                                                <Input
-                                                    id="cardNumber"
-                                                    type="text"
-                                                    value={cardDetails.cardNumber}
-                                                    onChange={(e) => {
-                                                        const formatted = formatCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16));
-                                                        setCardDetails({ ...cardDetails, cardNumber: formatted });
-                                                    }}
-                                                    className="bg-white border-blue-300"
-                                                    placeholder="1234 5678 9012 3456"
-                                                    maxLength={19}
-                                                />
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label htmlFor="cardName">Cardholder Name *</Label>
-                                                <Input
-                                                    id="cardName"
-                                                    type="text"
-                                                    value={cardDetails.cardName}
-                                                    onChange={(e) => setCardDetails({ ...cardDetails, cardName: e.target.value })}
-                                                    className="bg-white border-blue-300"
-                                                    placeholder="Name on card"
-                                                />
-                                            </div>
-
-                                            <div className="grid grid-cols-3 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="expiryMonth">Month *</Label>
-                                                    <Input
-                                                        id="expiryMonth"
-                                                        type="text"
-                                                        value={cardDetails.expiryMonth}
-                                                        onChange={(e) => setCardDetails({ ...cardDetails, expiryMonth: e.target.value.replace(/\D/g, '').slice(0, 2) })}
-                                                        className="bg-white border-blue-300"
-                                                        placeholder="MM"
-                                                        maxLength={2}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="expiryYear">Year *</Label>
-                                                    <Input
-                                                        id="expiryYear"
-                                                        type="text"
-                                                        value={cardDetails.expiryYear}
-                                                        onChange={(e) => setCardDetails({ ...cardDetails, expiryYear: e.target.value.replace(/\D/g, '').slice(0, 2) })}
-                                                        className="bg-white border-blue-300"
-                                                        placeholder="YY"
-                                                        maxLength={2}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="cvv">CVV *</Label>
-                                                    <Input
-                                                        id="cvv"
-                                                        type="text"
-                                                        value={cardDetails.cvv}
-                                                        onChange={(e) => setCardDetails({ ...cardDetails, cvv: e.target.value.replace(/\D/g, '').slice(0, 3) })}
-                                                        className="bg-white border-blue-300"
-                                                        placeholder="123"
-                                                        maxLength={3}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedPaymentMethod === 'bank' && (
-                                        <div className="space-y-4 p-4 border border-purple-200 rounded-lg bg-purple-50">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="bankName">Bank Name *</Label>
-                                                <Input
-                                                    id="bankName"
-                                                    type="text"
-                                                    value={bankDetails.bankName}
-                                                    onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
-                                                    className="bg-white border-purple-300"
-                                                    placeholder="e.g., Equity Bank"
-                                                />
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label htmlFor="accountName">Account Name *</Label>
-                                                <Input
-                                                    id="accountName"
-                                                    type="text"
-                                                    value={bankDetails.accountName}
-                                                    onChange={(e) => setBankDetails({ ...bankDetails, accountName: e.target.value })}
-                                                    className="bg-white border-purple-300"
-                                                    placeholder="Account holder name"
-                                                />
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label htmlFor="accountNumber">Account Number *</Label>
-                                                <Input
-                                                    id="accountNumber"
-                                                    type="text"
-                                                    value={bankDetails.accountNumber}
-                                                    onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
-                                                    className="bg-white border-purple-300"
-                                                    placeholder="Your bank account number"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
                                 <Alert className="bg-blue-50 border-blue-200">
                                     <Lock className="h-4 w-4 text-blue-600" />
                                     <AlertDescription className="text-blue-800 text-sm">
-                                        Your payment information is encrypted and secure.
+                                        You will be redirected to Pesapal's secure payment gateway where you can choose from multiple payment methods including M-Pesa, Card, Bank Transfer, and more.
                                     </AlertDescription>
                                 </Alert>
                             </CardContent>
@@ -664,7 +413,7 @@ export default function Checkout() {
 
                                 <Alert className="bg-blue-50 border-blue-200">
                                     <AlertDescription className="text-sm text-blue-800">
-                                        <strong>One Time Payment:</strong> Complete payment using {selectedPaymentMethod === 'mpesa' ? 'M-Pesa' : selectedPaymentMethod === 'card' ? 'your card' : 'bank transfer'}.
+                                        <strong>One Time Payment:</strong> Proceed to pay securely through Pesapal.
                                     </AlertDescription>
                                 </Alert>
 
