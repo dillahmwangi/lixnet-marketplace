@@ -24,6 +24,146 @@ class OrderController extends Controller
     }
 
     /**
+     * Initiate payment for order with payment method selection
+     */
+    public function initiatePayment($id, Request $request): JsonResponse
+    {
+        try {
+            // Validate payment method if provided
+            $validator = Validator::make($request->all(), [
+                'payment_method' => 'nullable|in:CARD,MPESA,BANK_TRANSFER' // Add other methods as needed
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid payment method',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            Log::info('Initiating payment for order', [
+                'order_id' => $id,
+                'user_id' => Auth::id(),
+                'payment_method' => $request->input('payment_method')
+            ]);
+
+            $order = Order::where('user_id', Auth::id())
+                ->findOrFail($id);
+
+            // Check if order can be paid
+            if (!$order->canPay()) {
+                Log::warning('Order cannot be paid', [
+                    'order_id' => $order->id,
+                    'status' => $order->status,
+                    'amount' => $order->total_amount
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order cannot be paid. Invalid status: ' . $order->status
+                ], 400);
+            }
+
+            // Determine redirect mode based on payment method
+            $paymentMethod = $request->input('payment_method', 'CARD');
+            $redirectMode = $this->getRedirectModeForPaymentMethod($paymentMethod);
+
+            // Prepare payment data for Pesapal
+            $paymentData = [
+                'id' => $order->order_reference,
+                'currency' => $order->currency,
+                'amount' => (float)$order->total_amount,
+                'description' => "Payment for Order #{$order->order_reference}",
+                'callback_url' => config('pesapal.callback_url'),
+                'billing_address' => [
+                    'email_address' => $order->email,
+                    'phone_number' => $order->phone,
+                    'first_name' => explode(' ', $order->full_name)[0] ?? '',
+                    'last_name' => explode(' ', $order->full_name, 2)[1] ?? '',
+                ]
+            ];
+
+            // Add payment method if stored in order
+            if ($order->payment_method) {
+                $paymentData['payment_method'] = $order->payment_method;
+            }
+
+            Log::info('Submitting order to PesaPal', [
+                'order_id' => $order->id,
+                'amount' => $order->total_amount,
+                'currency' => $order->currency,
+                'payment_method' => $paymentMethod,
+                'redirect_mode' => $redirectMode
+            ]);
+
+            // Call Pesapal service to get payment URL
+            $paymentResponse = $this->pesapalService->submitOrderRequest($paymentData);
+
+            if (!$paymentResponse['success']) {
+                Log::error('Failed to get payment URL from Pesapal', $paymentResponse);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to initiate payment',
+                    'error' => $paymentResponse['error'] ?? 'Payment service error'
+                ], 500);
+            }
+
+            // Update order with payment reference
+            $order->update([
+                'payment_reference' => $paymentResponse['order_tracking_id'],
+                'payment_method' => $paymentMethod // Optional: store selected payment method
+            ]);
+
+            Log::info('Payment initiated successfully', [
+                'order_id' => $order->id,
+                'order_tracking_id' => $paymentResponse['order_tracking_id'],
+                'payment_method' => $paymentMethod
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment initiated successfully',
+                'data' => [
+                    'payment_url' => $paymentResponse['redirect_url'],
+                    'order_tracking_id' => $paymentResponse['order_tracking_id'],
+                    'payment_method' => $paymentMethod
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error initiating payment: ' . $e->getMessage(), [
+                'exception' => $e
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to initiate payment',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Map payment method to Pesapal redirect mode
+     * 
+     * @param string $paymentMethod
+     * @return string
+     */
+    protected function getRedirectModeForPaymentMethod(string $paymentMethod): string
+    {
+        $redirectModes = [
+            'MPESA' => 'MPESA',
+            'CARD' => 'CARD',
+            'BANK_TRANSFER' => 'BANK_TRANSFER',
+            'AIRTEL' => 'AIRTEL',
+            'EQUITY' => 'EQUITY'
+        ];
+
+        return $redirectModes[$paymentMethod] ?? 'DEFAULT';
+    }
+
+    /**
      * Create order from checkout
      */
     public function store(Request $request): JsonResponse
@@ -69,6 +209,7 @@ class OrderController extends Controller
                     'total_amount' => $request->total_amount,
                     'currency' => $request->currency ?? 'KES',
                     'status' => 'pending',
+                    'payment_method' => $request->payment_method ?? null,
                 ]);
 
                 // Create order items
@@ -175,97 +316,6 @@ class OrderController extends Controller
                 'message' => 'Order not found',
                 'error' => config('app.debug') ? $e->getMessage() : 'Order not found'
             ], 404);
-        }
-    }
-
-    /**
-     * Initiate payment for order
-     */
-    public function initiatePayment($id): JsonResponse
-    {
-        try {
-            Log::info('Initiating payment for order', ['order_id' => $id, 'user_id' => Auth::id()]);
-
-            $order = Order::where('user_id', Auth::id())
-                ->findOrFail($id);
-
-            // Check if order can be paid
-            if (!$order->canPay()) {
-                Log::warning('Order cannot be paid', [
-                    'order_id' => $order->id,
-                    'status' => $order->status,
-                    'amount' => $order->total_amount
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Order cannot be paid. Invalid status: ' . $order->status
-                ], 400);
-            }
-
-            // Prepare payment data for Pesapal
-            $paymentData = [
-                'id' => $order->order_reference,
-                'currency' => $order->currency,
-                'amount' => (float)$order->total_amount,
-                'description' => "Payment for Order #{$order->order_reference}",
-                'callback_url' => config('pesapal.callback_url'),
-                'redirect_mode' => config('pesapal.redirect_mode'),
-                'billing_address' => [
-                    'email_address' => $order->email,
-                    'phone_number' => $order->phone,
-                    'first_name' => explode(' ', $order->full_name)[0] ?? '',
-                    'last_name' => explode(' ', $order->full_name, 2)[1] ?? '',
-                ]
-            ];
-
-            Log::info('Submitting order to PesaPal', [
-                'order_id' => $order->id,
-                'amount' => $order->total_amount,
-                'currency' => $order->currency
-            ]);
-
-            // Call Pesapal service to get payment URL
-            $paymentResponse = $this->pesapalService->submitOrderRequest($paymentData);
-
-            if (!$paymentResponse['success']) {
-                Log::error('Failed to get payment URL from Pesapal', $paymentResponse);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to initiate payment',
-                    'error' => $paymentResponse['error'] ?? 'Payment service error'
-                ], 500);
-            }
-
-            // Update order with payment reference
-            $order->update([
-                'payment_reference' => $paymentResponse['order_tracking_id']
-            ]);
-
-            Log::info('Payment initiated successfully', [
-                'order_id' => $order->id,
-                'order_tracking_id' => $paymentResponse['order_tracking_id']
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Payment initiated successfully',
-                'data' => [
-                    'payment_url' => $paymentResponse['redirect_url'],
-                    'order_tracking_id' => $paymentResponse['order_tracking_id']
-                ]
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error initiating payment: ' . $e->getMessage(), [
-                'exception' => $e
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to initiate payment',
-                'error' => config('app.debug') ? $e->getMessage() : 'Server error'
-            ], 500);
         }
     }
 
