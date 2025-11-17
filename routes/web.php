@@ -44,6 +44,11 @@ Route::get('/cart', function () {
     return Inertia::render('Cart');
 })->name('cart');
 
+// Add the checkout route here
+Route::get('/checkout', function () {
+    return Inertia::render('user/Checkout');
+})->name('checkout');
+
 
 /*
 |--------------------------------------------------------------------------

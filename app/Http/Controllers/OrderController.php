@@ -40,8 +40,7 @@ class OrderController extends Controller
                 'items.*.quantity' => 'required|integer|min:1',
                 'items.*.unit_price' => 'required|numeric|min:0',
                 'total_amount' => 'required|numeric|min:0',
-                'currency' => 'required|string|in:KES,USD',
-                'payment_method' => 'nullable|string|in:pesapal'
+                'currency' => 'required|string|in:KES,USD'
             ]);
 
             if ($validator->fails()) {
@@ -69,7 +68,6 @@ class OrderController extends Controller
                     'notes' => $request->notes,
                     'total_amount' => $request->total_amount,
                     'currency' => $request->currency ?? 'KES',
-                    'payment_method' => $request->payment_method ?? 'pesapal',
                     'status' => 'pending',
                 ]);
 
@@ -100,11 +98,9 @@ class OrderController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Order created and payment initiated successfully',
+                    'message' => 'Order created successfully',
                     'data' => [
-                        'order' => $order,
-                        'payment_url' => $paymentResponse['redirect_url'],
-                        'order_tracking_id' => $paymentResponse['order_tracking_id']
+                        'order' => $order
                     ]
                 ], 201);
             } catch (\Exception $e) {
