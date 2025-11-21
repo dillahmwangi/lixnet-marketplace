@@ -66,6 +66,28 @@ class ProductController extends Controller
     }
 
     /**
+     * Display the specified product.
+     */
+    public function show(Product $product): JsonResponse
+    {
+        try {
+            $product->load('category');
+
+            return response()->json([
+                'success' => true,
+                'data' => $product,
+                'message' => 'Product retrieved successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve product',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
      * Store a newly created product.
      */
     public function store(Request $request): JsonResponse
@@ -78,11 +100,13 @@ class ProductController extends Controller
             'rating' => 'nullable|numeric|min:0|max:5',
             'rating_count' => 'nullable|integer|min:0',
             'note' => 'nullable|string|max:500',
+            'is_subscription' => 'nullable|boolean',
+            'subscription_tiers' => 'nullable|json',
         ]);
 
         try {
             $product = Product::create($request->only([
-                'category_id', 'title', 'description', 'price', 'rating', 'rating_count', 'note'
+                'category_id', 'title', 'description', 'price', 'rating', 'rating_count', 'note', 'is_subscription', 'subscription_tiers'
             ]));
 
             $product->load('category');
@@ -132,6 +156,72 @@ class ProductController extends Controller
     }
 
     /**
+     * Filter products by category.
+     */
+    public function filterByCategory(Request $request): JsonResponse
+    {
+        $request->validate([
+            'category' => 'required|string'
+        ]);
+
+        try {
+            $category = Category::findBySlug($request->category);
+            
+            if (!$category) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Category not found'
+                ], 404);
+            }
+
+            $products = Product::with('category')
+                ->byCategory($category->id)
+                ->orderBy('title')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $products,
+                'count' => $products->count(),
+                'message' => 'Products retrieved successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to filter products',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get featured products.
+     */
+    public function featured(): JsonResponse
+    {
+        try {
+            $products = Product::with('category')
+                ->where('rating', '>=', 4.5)
+                ->orderBy('rating_count', 'desc')
+                ->limit(12)
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $products,
+                'count' => $products->count(),
+                'message' => 'Featured products retrieved successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve featured products',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
      * Update the specified product.
      */
     public function update(Request $request, Product $product): JsonResponse
@@ -144,11 +234,13 @@ class ProductController extends Controller
             'rating' => 'nullable|numeric|min:0|max:5',
             'rating_count' => 'nullable|integer|min:0',
             'note' => 'nullable|string|max:500',
+            'is_subscription' => 'nullable|boolean',
+            'subscription_tiers' => 'nullable|json',
         ]);
 
         try {
             $product->update($request->only([
-                'category_id', 'title', 'description', 'price', 'rating', 'rating_count', 'note'
+                'category_id', 'title', 'description', 'price', 'rating', 'rating_count', 'note', 'is_subscription', 'subscription_tiers'
             ]));
 
             $product->load('category');

@@ -11,8 +11,14 @@ import { router } from '@inertiajs/react';
 import { useAuth } from '@/context/auth-context';
 import toast from 'react-hot-toast';
 import Breadcrumbs from '@/components/ui/user-breadcrumbs';
+import React from 'react';
 
-export default function Cart() {
+type CartProps = {
+	// Called when the user wants to continue shopping (navigate back to marketplace)
+	onContinueShopping?: () => void;
+};
+
+export default function Cart({ onContinueShopping }: CartProps) {
     const { state, updateQuantity, removeItem, clearCart } = useCart();
     const { user, isLoading, logout } = useAuth();
 
@@ -56,8 +62,11 @@ export default function Cart() {
         }
     };
 
+    // safe handler to avoid runtime errors if prop isn't passed
     const handleContinueShopping = () => {
-        router.visit('/');
+        if (onContinueShopping) {
+            onContinueShopping();
+        }
     };
 
     function getProductIcon(categoryName: string) {

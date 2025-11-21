@@ -1,10 +1,11 @@
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MarketplaceLayout } from '@/layouts/marketplace-layout';
 import { ProductCard } from '@/components/marketplace/product-card';
+import { ProductDetails } from './ProductDetails'
 import { router } from '@inertiajs/react';
 import { useAuth } from '@/context/auth-context';
 import toast from 'react-hot-toast';
@@ -22,6 +23,7 @@ interface Product {
         name: string;
         slug: string;
     };
+    is_subscription?: boolean;
 }
 
 interface ApiResponse {
@@ -31,6 +33,8 @@ interface ApiResponse {
     message: string;
 }
 
+type CurrentPage = 'marketplace' | 'product-details';
+
 export default function Marketplace() {
     const [products, setProducts] = useState<Product[]>([]);
     const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -38,6 +42,8 @@ export default function Marketplace() {
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
+    const [currentPage, setCurrentPage] = useState<CurrentPage>('marketplace');
+    const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
     const { logout, checkAuth, user } = useAuth();
 
     // Fetch products on mount
@@ -121,18 +127,31 @@ export default function Marketplace() {
     };
 
     const handleLoginClick = () => {
-        // log out user from previous session if available or redirect to login
         user ? logout() : router.visit('/login');
     };
 
     const handleAddToCart = (product: Product) => {
-        // You can add any additional logic here like showing a toast notification
         toast.success(`Added to cart: ${product.title}`);
     };
 
-    const renderProductGrid = () => {
+    const handleViewDetails = (productId: number) => {
+        setSelectedProductId(productId);
+        setCurrentPage('product-details');
+    };
 
-        // sort products by id
+    const handleBackToMarketplace = () => {
+        setCurrentPage('marketplace');
+        setSelectedProductId(null);
+    };
+
+    const handleSelectPlan = (productId: number, tier: string, price: number) => {
+        console.log(`Selected ${tier} tier for product ${productId} at KSh ${price}/month`);
+        toast.success(`Selected ${tier} tier - Proceeding to checkout`);
+        // Add subscription to cart logic here
+        handleBackToMarketplace();
+    };
+
+    const renderProductGrid = () => {
         const sortedProducts = filteredProducts.sort((a, b) => a.id - b.id);
 
         if (isLoading) {
@@ -207,11 +226,29 @@ export default function Marketplace() {
                         key={product.id}
                         product={product}
                         onAddToCart={handleAddToCart}
+                        onViewDetails={handleViewDetails}
                     />
                 ))}
             </div>
         );
     };
+
+    if (currentPage === 'product-details' && selectedProductId) {
+        return (
+            <MarketplaceLayout
+                onSearch={handleSearch}
+                onCategoryFilter={handleCategoryFilter}
+                onCartClick={handleCartClick}
+                onLoginClick={handleLoginClick}
+            >
+                <ProductDetails
+                    productId={selectedProductId}
+                    onBack={handleBackToMarketplace}
+                    onSelectPlan={handleSelectPlan}
+                />
+            </MarketplaceLayout>
+        );
+    }
 
     return (
         <MarketplaceLayout
