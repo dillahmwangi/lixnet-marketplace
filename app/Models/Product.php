@@ -1,4 +1,6 @@
 <?php
+// File: app/Models/Product.php
+// ADD THESE TO YOUR EXISTING PRODUCT MODEL
 
 namespace App\Models;
 
@@ -16,7 +18,9 @@ class Product extends Model
         'rating',
         'rating_count',
         'note',
-        'image_path'
+        'image_path',
+        'is_subscription',
+        'subscription_tiers'
     ];
 
     protected $casts = [
@@ -24,27 +28,44 @@ class Product extends Model
         'rating' => 'decimal:1',
         'rating_count' => 'integer',
         'category_id' => 'integer',
+        'is_subscription' => 'boolean',
+        'subscription_tiers' => 'array',
     ];
 
-    /**
-     * Get the category that owns the product.
-     */
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
     }
 
-    /**
-     * Get the cart items for the product.
-     */
     public function cartItems(): HasMany
     {
         return $this->hasMany(CartItem::class);
     }
 
-    /**
-     * Scope a query to search products by title or description.
-     */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    public function subscriptionTiers(): array
+    {
+        if (!$this->is_subscription) {
+            return [];
+        }
+
+        return $this->subscription_tiers ?? [
+            'free' => ['price' => 0, 'features' => 'Basic features'],
+            'basic' => ['price' => 500, 'features' => 'Standard features'],
+            'premium' => ['price' => 1500, 'features' => 'All features']
+        ];
+    }
+
+    public function getTierPrice(string $tier): ?float
+    {
+        $tiers = $this->subscriptionTiers();
+        return isset($tiers[$tier]) ? (float) $tiers[$tier]['price'] : null;
+    }
+
     public function scopeSearch($query, string $term)
     {
         return $query->where(function ($q) use ($term) {
@@ -53,17 +74,11 @@ class Product extends Model
         });
     }
 
-    /**
-     * Scope a query to filter products by category.
-     */
     public function scopeByCategory($query, int $categoryId)
     {
         return $query->where('category_id', $categoryId);
     }
 
-    /**
-     * Get formatted price with currency.
-     */
     public function getFormattedPriceAttribute(): string
     {
         return 'KSh ' . number_format((float) $this->price, 0);
