@@ -15,8 +15,10 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\JobApplicationController;
+use App\Http\Controllers\SubscriptionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -191,4 +193,24 @@ Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('admin')->group(
         Route::delete('/{application}', [JobApplicationController::class, 'destroy']);
         Route::get('/{application}/download-resume', [JobApplicationController::class, 'downloadResume']);
     });
+});
+
+
+Route::middleware('auth:sanctum')->group(function () {
+    
+    // Get available subscription tiers for a product
+    Route::get('/subscriptions/tiers/{product}', [SubscriptionController::class, 'getTiers']);
+    
+    // Create a new subscription
+    Route::post('/subscriptions', [SubscriptionController::class, 'subscribe']);
+    
+    // Get all user's subscriptions (with optional status filter)
+    Route::get('/subscriptions', [SubscriptionController::class, 'getUserSubscriptions']);
+    
+    // Get single subscription details
+    Route::get('/subscriptions/{id}', [SubscriptionController::class, 'show']);
+    
+    // Cancel a subscription
+    Route::post('/subscriptions/{id}/cancel', [SubscriptionController::class, 'cancel']);
+    
 });
