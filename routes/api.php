@@ -43,13 +43,17 @@ Route::prefix('categories')->group(function () {
     Route::get('/slug/{slug}', [CategoryController::class, 'showBySlug']);
 });
 
-// Products
+// Products - IMPORTANT: Specific routes BEFORE generic {product} route
 Route::prefix('products')->group(function () {
     Route::get('/', [ProductController::class, 'index']);
+    Route::post('/', [ProductController::class, 'store'])->middleware(['auth', 'admin']);
     Route::get('/search', [ProductController::class, 'search']);
     Route::get('/filter', [ProductController::class, 'filterByCategory']);
     Route::get('/featured', [ProductController::class, 'featured']);
+    // Generic route MUST be last
     Route::get('/{product}', [ProductController::class, 'show']);
+    Route::put('/{product}', [ProductController::class, 'update'])->middleware(['auth', 'admin']);
+    Route::delete('/{product}', [ProductController::class, 'destroy'])->middleware(['auth', 'admin']);
 });
 
 Route::prefix('cart')->group(function () {
@@ -151,13 +155,6 @@ Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('admin')->group(
         Route::delete('/{category}', [CategoryController::class, 'destroy']);
     });
 
-    // Product management (admin only)
-    Route::prefix('products')->group(function () {
-        Route::post('/', [ProductController::class, 'store']);
-        Route::put('/{product}', [ProductController::class, 'update']);
-        Route::delete('/{product}', [ProductController::class, 'destroy']);
-    });
-
     // User management (admin only)
     Route::prefix('users')->group(function () {
         Route::get('/', [AdminUserController::class, 'index'])->name('admin.users.index');
@@ -167,7 +164,7 @@ Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('admin')->group(
         Route::get('/{user}/orders', [AdminUserController::class, 'orders'])->name('admin.users.orders');
     });
 
-    //Agent management (admin only)
+    // Agent management (admin only)
     Route::prefix('agent-applications')->group(function () {
         Route::get('/list', [AdminAgentApplicationController::class, 'index'])->name('admin.agent-applications.index');
         Route::get('/details/{application}', [AdminAgentApplicationController::class, 'show'])->name('admin.agent-applications.show');
@@ -195,9 +192,13 @@ Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('admin')->group(
     });
 });
 
+/*
+|--------------------------------------------------------------------------
+| Subscription Routes (Authenticated)
+|--------------------------------------------------------------------------
+*/
 
 Route::middleware('auth:sanctum')->group(function () {
-    
     // Get available subscription tiers for a product
     Route::get('/subscriptions/tiers/{product}', [SubscriptionController::class, 'getTiers']);
     
@@ -212,5 +213,4 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Cancel a subscription
     Route::post('/subscriptions/{id}/cancel', [SubscriptionController::class, 'cancel']);
-    
 });

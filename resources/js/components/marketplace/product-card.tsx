@@ -1,4 +1,4 @@
-import { Star, StarHalf, Plus, Check, Briefcase, PiggyBank, GraduationCap, Calculator, Truck, ShoppingBag } from 'lucide-react';
+import { Star, StarHalf, Plus, Check, Briefcase, PiggyBank, GraduationCap, Calculator, Truck, ShoppingBag, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,11 +18,13 @@ interface Product {
         name: string;
         slug: string;
     };
+    is_subscription?: boolean;
 }
 
 interface ProductCardProps {
     product: Product;
     onAddToCart?: (product: Product) => void;
+    onViewDetails?: (productId: number) => void;
 }
 
 // Helper function to render stars
@@ -66,7 +68,7 @@ function getProductIcon(categoryName: string) {
     return iconClass;
 }
 
-export function ProductCard({ product, onAddToCart }: ProductCardProps) {
+export function ProductCard({ product, onAddToCart, onViewDetails }: ProductCardProps) {
     const { addItem, getItemQuantity } = useCart();
     const itemQuantity = getItemQuantity(product.id);
     const iconClass = getProductIcon(product.category.name);
@@ -74,6 +76,10 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
     const handleAddToCart = () => {
         addItem(product, 1);
         onAddToCart?.(product);
+    };
+
+    const handleViewDetails = () => {
+        onViewDetails?.(product.id);
     };
 
     const formatPrice = (price: number) => {
@@ -109,9 +115,9 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
                 </div>
 
                 {/* Price */}
-                <div className="mb-3">
+                <div className="mb-4">
                     <div className="text-2xl font-bold text-dark-blue">
-                        {formatPrice(product.price)}/mo
+                        {formatPrice(product.price)}{product.is_subscription ? '/mo' : ''}
                     </div>
                     {product.note && (
                         <div className="text-xs text-gray-500 mt-1">
@@ -120,24 +126,34 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
                     )}
                 </div>
 
-                {/* Add to Cart Button */}
-                <Button
-                    onClick={handleAddToCart}
-                    className="w-full bg-brand-blue hover:bg-[#0052a3] text-white font-medium py-2.5 transition-colors"
-                    disabled={false}
-                >
-                    {itemQuantity > 0 ? (
-                        <>
-                            <Check className="w-4 h-4 mr-2" />
-                            Added ({itemQuantity})
-                        </>
-                    ) : (
-                        <>
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add to Cart
-                        </>
-                    )}
-                </Button>
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                    <Button
+                        onClick={handleViewDetails}
+                        variant="outline"
+                        className="flex-1 border-2 border-brand-blue text-brand-blue hover:bg-blue-50 font-medium py-2.5 transition-colors"
+                    >
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Details
+                    </Button>
+                    <Button
+                        onClick={handleAddToCart}
+                        className="flex-1 bg-brand-blue hover:bg-[#0052a3] text-white font-medium py-2.5 transition-colors"
+                        disabled={false}
+                    >
+                        {itemQuantity > 0 ? (
+                            <>
+                                <Check className="w-4 h-4 mr-2" />
+                                ({itemQuantity})
+                            </>
+                        ) : (
+                            <>
+                                <Plus className="w-4 h-4 mr-2" />
+                                Add
+                            </>
+                        )}
+                    </Button>
+                </div>
 
                 {/* Category Badge */}
                 <div className="mt-3">
