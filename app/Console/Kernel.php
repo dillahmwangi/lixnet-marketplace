@@ -27,6 +27,12 @@ class Kernel extends ConsoleKernel
             ->dailyAt('08:00')
             ->timezone('Africa/Nairobi')
             ->onOneServer();
+
+        // Process subscription renewals daily at 9 AM Nairobi time
+        $schedule->command('subscriptions:process-renewals')
+            ->dailyAt('09:00')
+            ->timezone('Africa/Nairobi')
+            ->onOneServer();
     }
 
     /**
