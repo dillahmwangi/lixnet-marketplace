@@ -13,6 +13,7 @@ class OrderItem extends Model
         'quantity',
         'unit_price',
         'line_total',
+        'subscription_tier'
     ];
 
     protected $casts = [
@@ -57,5 +58,29 @@ class OrderItem extends Model
     public function getSubtotalAttribute(): float
     {
         return (float) $this->unit_price * $this->quantity;
+    }
+
+    /**
+     * Calculate total price for this item
+     */
+    public function getTotalPrice()
+    {
+        return $this->unit_price * $this->quantity;
+    }
+
+    /**
+     * Check if this item is for a subscription product
+     */
+    public function isSubscriptionItem(): bool
+    {
+        return $this->product->is_subscription ?? false;
+    }
+
+    /**
+     * Get subscription tier for this item
+     */
+    public function getSubscriptionTier(): ?string
+    {
+        return $this->subscription_tier;
     }
 }

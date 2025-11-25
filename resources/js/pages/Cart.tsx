@@ -1,4 +1,4 @@
-import { JSX, useState } from 'react';
+import { JSX, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,19 +12,57 @@ import { useAuth } from '@/context/auth-context';
 import toast from 'react-hot-toast';
 import Breadcrumbs from '@/components/ui/user-breadcrumbs';
 import React from 'react';
+import axios from 'axios';
 
 type CartProps = {
-	// Called when the user wants to continue shopping (navigate back to marketplace)
 	onContinueShopping?: () => void;
 };
+
+interface SubscriptionTier {
+    price: number;
+    features: string;
+}
+
+interface CartItem {
+	id: number | string;
+	product: {
+		id: number;
+		title: string;
+		description: string;
+		price: number;
+		category: {
+			name: string;
+		};
+		note?: string;
+		is_subscription?: boolean;
+		subscription_tiers?: Record<string, SubscriptionTier> | null;
+	};
+	quantity: number;
+}
+
+interface CartItemWithTier extends CartItem {
+	subscription_tier?: string;
+}
 
 export default function Cart({ onContinueShopping }: CartProps) {
     const { state, updateQuantity, removeItem, clearCart } = useCart();
     const { user, isLoading, logout } = useAuth();
+    const [isUpdatingTier, setIsUpdatingTier] = useState<number | null>(null);
 
     const formatPrice = (price: number) => {
         return `KSh ${price.toLocaleString()}`;
     };
+
+    // Helper function to get tier-based price
+    function getItemPrice(item: CartItemWithTier): number {
+        // For subscription items with a tier, use tier-specific pricing
+        if (item.subscription_tier && item.product.is_subscription && item.product.subscription_tiers) {
+            const tierData = item.product.subscription_tiers[item.subscription_tier];
+            return tierData ? tierData.price : item.product.price;
+        }
+        // For non-subscription items, use base price
+        return item.product.price;
+    }
 
     const onCheckoutClick = () => {
         if (isLoading) {
@@ -33,20 +71,16 @@ export default function Cart({ onContinueShopping }: CartProps) {
         }
 
         if (!user) {
-            // Guest: show feedback then redirect to login
             toast.error("You must create an account to complete a purchase.");
-            // include redirect back to checkout so you can return user after login
             const redirectPath = encodeURIComponent("/checkout");
             router.visit(`/login?redirect=${redirectPath}`);
             return;
         }
 
-        // Authenticated: proceed to checkout page (Inertia page)
         router.visit("/checkout");
     };
 
     const handleCartClick = () => {
-        // navigate to cart
         router.visit('/cart');
     };
 
@@ -62,10 +96,33 @@ export default function Cart({ onContinueShopping }: CartProps) {
         }
     };
 
-    // safe handler to avoid runtime errors if prop isn't passed
+    const handleChangeTier = async (cartItemId: number, currentTier: string) => {
+        const newTier = currentTier === 'basic' ? 'premium' : currentTier === 'premium' ? 'free' : 'basic';
+        
+        setIsUpdatingTier(cartItemId);
+        try {
+            const response = await axios.put(`/api/cart/items/${cartItemId}/subscription-tier`, {
+                subscription_tier: newTier
+            });
+
+            if (response.data.success) {
+                toast.success(`Subscription tier changed to ${newTier}`);
+                // Update local cart state
+                window.location.reload();
+            }
+        } catch (error: any) {
+            console.error('Error updating tier:', error);
+            toast.error('Failed to update subscription tier');
+        } finally {
+            setIsUpdatingTier(null);
+        }
+    };
+
     const handleContinueShopping = () => {
         if (onContinueShopping) {
             onContinueShopping();
+        } else {
+            router.visit('/');
         }
     };
 
@@ -79,7 +136,6 @@ export default function Cart({ onContinueShopping }: CartProps) {
             'Inventory': <Truck className='size-8 text-brand-blue' />,
         };
 
-        // Find matching category or default
         const iconClass = Object.entries(iconMap).find(([key]) =>
             categoryName.toLowerCase().includes(key.toLowerCase())
         )?.[1] || <Briefcase />;
@@ -113,14 +169,12 @@ export default function Cart({ onContinueShopping }: CartProps) {
         <MarketplaceLayout
             onCartClick={handleCartClick}
             onLoginClick={handleLoginClick}
-
         >
             <div className="max-w-6xl mx-auto px-4 py-8">
                 {/* Breadcrumbs */}
                 <div className="mb-4">
                     <Breadcrumbs
                         items={[
-                            // { label: 'Home', href: '/' },
                             { label: 'Cart' }
                         ]}
                     />
@@ -136,7 +190,7 @@ export default function Cart({ onContinueShopping }: CartProps) {
                     {/* Cart Items */}
                     <div className="lg:col-span-2">
                         <Card className='bg-card-color text-text-dark border border-border-color'>
-                            <CardHeader className="flex flex-row items-center justify-between ">
+                            <CardHeader className="flex flex-row items-center justify-between">
                                 <CardTitle>Cart Items</CardTitle>
                                 <Button
                                     variant="outline"
@@ -149,7 +203,7 @@ export default function Cart({ onContinueShopping }: CartProps) {
                                 </Button>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                {state.items.map((item, index) => (
+                                {state.items.map((item: CartItemWithTier, index) => (
                                     <div key={item.id}>
                                         {index > 0 && <Separator className="my-4 bg-border-color" />}
 
@@ -170,6 +224,28 @@ export default function Cart({ onContinueShopping }: CartProps) {
                                                 <Badge variant="secondary" className="text-xs bg-background-color text-text-dark border border-border-color">
                                                     {item.product.category.name}
                                                 </Badge>
+
+                                                {/* Subscription Tier Info */}
+                                                {item.subscription_tier && item.product.is_subscription && (
+                                                    <div className="mt-2 space-y-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <Badge className="bg-green-100 text-green-800 border-green-300 text-xs font-semibold">
+                                                                Plan: {item.subscription_tier.charAt(0).toUpperCase() + item.subscription_tier.slice(1)}
+                                                            </Badge>
+                                                            <button
+                                                                onClick={() => handleChangeTier(Number(item.id), item.subscription_tier || 'basic')}
+                                                                disabled={isUpdatingTier === Number(item.id)}
+                                                                className="text-xs text-brand-blue hover:text-dark-blue underline"
+                                                            >
+                                                                {isUpdatingTier === Number(item.id) ? 'Changing...' : 'Change Plan'}
+                                                            </button>
+                                                        </div>
+                                                        <p className="text-xs text-gray-500">
+                                                            Monthly subscription
+                                                        </p>
+                                                    </div>
+                                                )}
+
                                                 {item.product.note && (
                                                     <p className="text-xs text-gray-500 mt-1">
                                                         {item.product.note}
@@ -180,7 +256,10 @@ export default function Cart({ onContinueShopping }: CartProps) {
                                             {/* Price and Quantity */}
                                             <div className="text-right space-y-2">
                                                 <div className="font-semibold text-dark-blue">
-                                                    {formatPrice(item.product.price)}
+                                                    {formatPrice(getItemPrice(item))}
+                                                    {item.subscription_tier && (
+                                                        <div className="text-xs text-gray-500 font-normal">/month</div>
+                                                    )}
                                                 </div>
 
                                                 {/* Quantity Controls */}
@@ -210,7 +289,7 @@ export default function Cart({ onContinueShopping }: CartProps) {
 
                                                 {/* Subtotal */}
                                                 <div className="text-sm text-gray-500">
-                                                    Subtotal: {formatPrice(item.product.price * item.quantity)}
+                                                    Subtotal: {formatPrice(getItemPrice(item) * item.quantity)}
                                                 </div>
 
                                                 {/* Remove Button */}
@@ -254,7 +333,7 @@ export default function Cart({ onContinueShopping }: CartProps) {
                                 <Alert className='bg-background-color border-border-color text-text-dark'>
                                     <MessageCircle className="h-4 w-4" />
                                     <AlertDescription className="text-sm text-gray-600">
-                                        Click checkout to send your inquiry via WhatsApp for personalized assistance and pricing.
+                                        Review your subscription plans and pricing before checkout.
                                     </AlertDescription>
                                 </Alert>
 
@@ -266,7 +345,6 @@ export default function Cart({ onContinueShopping }: CartProps) {
                                     >
                                         Proceed to Checkout
                                     </Button>
-
 
                                     <Button
                                         variant="outline"

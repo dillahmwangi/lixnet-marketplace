@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Check, Star, StarHalf, Briefcase, PiggyBank, GraduationCap, Calculator, Truck, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { JSX } from 'react';
+import { useCart } from '@/context/cart-context';
+import toast from 'react-hot-toast';
+import { router } from '@inertiajs/react';
 
 interface SubscriptionTier {
   price: number;
@@ -30,7 +32,6 @@ interface ProductDetailsType {
 interface ProductDetailsProps {
   productId: number;
   onBack: () => void;
-  onSelectPlan?: (productId: number, tier: string, price: number) => void;
 }
 
 function getProductIcon(categoryName: string) {
@@ -71,11 +72,13 @@ function renderStars(rating: number) {
   return stars;
 }
 
-export function ProductDetails({ productId, onBack, onSelectPlan }: ProductDetailsProps) {
+export function ProductDetails({ productId, onBack }: ProductDetailsProps) {
+  const { addItem } = useCart();
   const [product, setProduct] = useState<ProductDetailsType | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -109,6 +112,38 @@ export function ProductDetails({ productId, onBack, onSelectPlan }: ProductDetai
 
     fetchProduct();
   }, [productId]);
+
+  const handleAddToCart = async (tier: string) => {
+    if (!product) return;
+
+    setIsAddingToCart(true);
+    try {
+      // Use the cart context addItem instead of direct axios
+      await addItem(product, 1, product.is_subscription ? tier : undefined);
+      
+      toast.success(`${product.title} (${tier}) added to cart!`);
+      
+      // Redirect to cart after a short delay
+      setTimeout(() => {
+        router.visit('/cart');
+      }, 300);
+    } catch (error: any) {
+      console.error('Error adding to cart:', error);
+      toast.error(error.response?.data?.message || 'Failed to add to cart');
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
+
+  const handleSelectTier = (tier: string) => {
+    setSelectedTier(tier);
+  };
+
+  const tierTitles: Record<string, string> = {
+    free: 'Free',
+    basic: 'Basic',
+    premium: 'Premium'
+  };
 
   if (loading) {
     return (
@@ -147,23 +182,6 @@ export function ProductDetails({ productId, onBack, onSelectPlan }: ProductDetai
       </div>
     );
   }
-
-  const handleSelectTier = (tier: string) => {
-    setSelectedTier(tier);
-  };
-
-  const handleSubscribe = (tier: string) => {
-    if (product.subscription_tiers && onSelectPlan) {
-      const tierData = product.subscription_tiers[tier];
-      onSelectPlan(product.id, tier, tierData.price);
-    }
-  };
-
-  const tierTitles: Record<string, string> = {
-    free: 'Free',
-    basic: 'Basic',
-    premium: 'Premium'
-  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -284,14 +302,22 @@ export function ProductDetails({ productId, onBack, onSelectPlan }: ProductDetai
             })}
           </div>
 
-          {/* Subscribe Button */}
+          {/* Add to Cart Button */}
           {selectedTier && (
             <div className="flex gap-4">
               <Button
-                onClick={() => handleSubscribe(selectedTier)}
-                className="flex-1 bg-brand-blue hover:bg-dark-blue text-white py-4 rounded-lg font-bold text-lg"
+                onClick={() => handleAddToCart(selectedTier)}
+                disabled={isAddingToCart}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-4 rounded-lg font-bold text-lg"
               >
-                Subscribe to {tierTitles[selectedTier]}
+                {isAddingToCart ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Adding...
+                  </div>
+                ) : (
+                  `Add ${tierTitles[selectedTier]} Plan to Cart`
+                )}
               </Button>
               <Button
                 onClick={onBack}

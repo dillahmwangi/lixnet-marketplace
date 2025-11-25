@@ -23,7 +23,6 @@ class ProductSeeder extends Seeder
                 'category' => 'payroll-hr',
                 'title' => 'Evolve Payroll & HR System',
                 'description' => 'Complete payroll & HR solution with NHIF, NSSF, KRA tax, and compliance reports.',
-                'price' => 1,
                 'rating' => 4.5,
                 'rating_count' => 2524,
                 'note' => 'Handles all Kenyan compliance',
@@ -34,7 +33,7 @@ class ProductSeeder extends Seeder
                         'features' => 'Up to 10 employees, basic payroll'
                     ],
                     'basic' => [
-                        'price' => 2500,
+                        'price' => 1,
                         'features' => 'Up to 50 employees, NHIF & NSSF integration'
                     ],
                     'premium' => [
@@ -49,7 +48,6 @@ class ProductSeeder extends Seeder
                 'category' => 'sacco',
                 'title' => 'Evolve SACCO Manager Pro',
                 'description' => 'Loans, savings, dividends, and member management.',
-                'price' => 25999,
                 'rating' => 5.0,
                 'rating_count' => 2112,
                 'note' => 'SASRA compliant reports',
@@ -74,7 +72,6 @@ class ProductSeeder extends Seeder
                 'category' => 'sacco',
                 'title' => 'Evolve SACCO Loan Manager',
                 'description' => 'Specialized loan management with flexible schedules and interest calculations.',
-                'price' => 18500,
                 'rating' => 4.5,
                 'rating_count' => 956,
                 'note' => 'Integrated with M-Pesa',
@@ -100,7 +97,6 @@ class ProductSeeder extends Seeder
                 'category' => 'school',
                 'title' => 'Evolve SchoolSoft Kenya',
                 'description' => 'Student records, fees, exams, and reporting.',
-                'price' => 19999,
                 'rating' => 5.0,
                 'rating_count' => 1756,
                 'note' => 'For primary & secondary schools',
@@ -125,7 +121,6 @@ class ProductSeeder extends Seeder
                 'category' => 'school',
                 'title' => 'Evolve EduFinance Manager',
                 'description' => 'School fee management with M-Pesa integration, receipting, and balances.',
-                'price' => 14500,
                 'rating' => 4.5,
                 'rating_count' => 1328,
                 'note' => '+KSh 10 per student',
@@ -151,7 +146,6 @@ class ProductSeeder extends Seeder
                 'category' => 'pos',
                 'title' => 'Evolve POS Kenya Pro',
                 'description' => 'POS with inventory, sales tracking, and receipts.',
-                'price' => 15999,
                 'rating' => 4.5,
                 'rating_count' => 2451,
                 'note' => 'Includes hardware support',
@@ -176,7 +170,6 @@ class ProductSeeder extends Seeder
                 'category' => 'pos',
                 'title' => 'Evolve Retail Manager Kenya',
                 'description' => 'Inventory, sales reports, customers, and suppliers.',
-                'price' => 12900,
                 'rating' => 4.0,
                 'rating_count' => 1637,
                 'note' => 'Multi-store support',
@@ -202,7 +195,6 @@ class ProductSeeder extends Seeder
                 'category' => 'accounting',
                 'title' => 'Evolve BizBooks Accounting',
                 'description' => 'Complete accounting with KRA tax compliance features.',
-                'price' => 8999,
                 'rating' => 5.0,
                 'rating_count' => 1892,
                 'note' => 'KRA compliant',
@@ -228,7 +220,6 @@ class ProductSeeder extends Seeder
                 'category' => 'inventory',
                 'title' => 'Evolve Inventory Tracker',
                 'description' => 'Stock, barcodes, reorder alerts, suppliers.',
-                'price' => 7499,
                 'rating' => 4.5,
                 'rating_count' => 945,
                 'note' => 'Mobile app included',
@@ -251,12 +242,15 @@ class ProductSeeder extends Seeder
         ];
 
         foreach ($products as $p) {
+            // Get basic tier price to use as display price
+            $basicPrice = $p['subscription_tiers']['basic']['price'] ?? 0;
+
             Product::updateOrCreate(
                 ['title' => $p['title']],
                 [
                     'category_id' => $bySlug($p['category']),
                     'description' => $p['description'],
-                    'price' => $p['price'],
+                    'price' => $basicPrice,
                     'rating' => $p['rating'],
                     'rating_count' => $p['rating_count'],
                     'note' => $p['note'],

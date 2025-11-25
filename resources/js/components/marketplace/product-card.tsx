@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/context/cart-context';
 import { JSX } from 'react';
+import toast from 'react-hot-toast';
 
 interface Product {
     id: number;
@@ -73,9 +74,20 @@ export function ProductCard({ product, onAddToCart, onViewDetails }: ProductCard
     const itemQuantity = getItemQuantity(product.id);
     const iconClass = getProductIcon(product.category.name);
 
-    const handleAddToCart = () => {
-        addItem(product, 1);
-        onAddToCart?.(product);
+    const handleAddToCart = async () => {
+        // For subscription products, they must select a plan first
+        if (product.is_subscription) {
+            toast.error('Please select a plan from the product details page');
+            handleViewDetails();
+            return;
+        }
+
+        try {
+            await addItem(product, 1);
+            onAddToCart?.(product);
+        } catch (error) {
+            console.error('Failed to add item:', error);
+        }
     };
 
     const handleViewDetails = () => {
@@ -117,8 +129,14 @@ export function ProductCard({ product, onAddToCart, onViewDetails }: ProductCard
                 {/* Price */}
                 <div className="mb-4">
                     <div className="text-2xl font-bold text-dark-blue">
-                        {formatPrice(product.price)}{product.is_subscription ? '/mo' : ''}
+                        {formatPrice(product.price)}
+                        {product.is_subscription && <span className="text-lg">/month</span>}
                     </div>
+                    {product.is_subscription && (
+                        <div className="text-xs text-gray-500 mt-1">
+                            starting price - view details for other plans
+                        </div>
+                    )}
                     {product.note && (
                         <div className="text-xs text-gray-500 mt-1">
                             {product.note}
@@ -134,14 +152,19 @@ export function ProductCard({ product, onAddToCart, onViewDetails }: ProductCard
                         className="flex-1 border-2 border-brand-blue text-brand-blue hover:bg-blue-50 font-medium py-2.5 transition-colors"
                     >
                         <Eye className="w-4 h-4 mr-2" />
-                        View Details
+                        {product.is_subscription ? 'Select Plan' : 'View Details'}
                     </Button>
                     <Button
                         onClick={handleAddToCart}
                         className="flex-1 bg-brand-blue hover:bg-[#0052a3] text-white font-medium py-2.5 transition-colors"
-                        disabled={false}
+                        disabled={product.is_subscription}
                     >
-                        {itemQuantity > 0 ? (
+                        {product.is_subscription ? (
+                            <>
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Plans
+                            </>
+                        ) : itemQuantity > 0 ? (
                             <>
                                 <Check className="w-4 h-4 mr-2" />
                                 ({itemQuantity})
