@@ -213,4 +213,7 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Cancel a subscription
     Route::post('/subscriptions/{id}/cancel', [SubscriptionController::class, 'cancel']);
+
+    // Change/Upgrade/Downgrade subscription tier (NEW)
+    Route::post('/subscriptions/{id}/change-tier', [SubscriptionController::class, 'changeTier']);
 });
