@@ -3,6 +3,11 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 // Types
+interface SubscriptionTier {
+    price: number;
+    features: string;
+}
+
 interface Product {
     id: number;
     title: string;
@@ -16,12 +21,15 @@ interface Product {
         name: string;
         slug: string;
     };
+    is_subscription?: boolean;
+    subscription_tiers?: Record<string, SubscriptionTier> | null;
 }
 
 interface CartItem {
     id: string | number;
     product: Product;
     quantity: number;
+    subscription_tier?: string;
 }
 
 interface CartState {
@@ -34,7 +42,7 @@ interface CartState {
 
 interface CartContextType {
     state: CartState;
-    addItem: (product: Product, quantity?: number) => Promise<void>;
+    addItem: (product: Product, quantity?: number, subscriptionTier?: string) => Promise<void>;
     removeItem: (itemId: string | number) => Promise<void>;
     updateQuantity: (itemId: string | number, quantity: number) => Promise<void>;
     clearCart: () => Promise<void>;
@@ -48,7 +56,7 @@ type CartAction =
     | { type: 'SET_LOADING'; payload: boolean }
     | { type: 'SET_SYNCING'; payload: boolean }
     | { type: 'SET_CART'; payload: CartItem[] }
-    | { type: 'ADD_ITEM_LOCAL'; payload: { product: Product; quantity: number } }
+    | { type: 'ADD_ITEM_LOCAL'; payload: { product: Product; quantity: number; subscriptionTier?: string } }
     | { type: 'REMOVE_ITEM_LOCAL'; payload: string | number }
     | { type: 'UPDATE_QUANTITY_LOCAL'; payload: { id: string | number; quantity: number } }
     | { type: 'CLEAR_CART_LOCAL' };
@@ -62,10 +70,22 @@ const initialState: CartState = {
     isSyncing: false,
 };
 
-// Helper to calculate totals
+// Helper to get item price based on tier
+const getItemPrice = (item: CartItem): number => {
+    if (item.subscription_tier && item.product.is_subscription && item.product.subscription_tiers) {
+        const tierData = item.product.subscription_tiers[item.subscription_tier];
+        return tierData ? tierData.price : item.product.price;
+    }
+    return item.product.price;
+};
+
+// Helper to calculate totals with tier-based pricing
 const calculateTotals = (items: CartItem[]) => {
     const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-    const totalValue = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    const totalValue = items.reduce((sum, item) => {
+        const itemPrice = getItemPrice(item);
+        return sum + (itemPrice * item.quantity);
+    }, 0);
     return { totalItems, totalValue };
 };
 
@@ -85,9 +105,9 @@ function cartReducer(state: CartState, action: CartAction): CartState {
         }
 
         case 'ADD_ITEM_LOCAL': {
-            const { product, quantity } = action.payload;
+            const { product, quantity, subscriptionTier } = action.payload;
             const existingItemIndex = state.items.findIndex(
-                item => item.product.id === product.id
+                item => item.product.id === product.id && item.subscription_tier === subscriptionTier
             );
 
             let newItems: CartItem[];
@@ -99,9 +119,10 @@ function cartReducer(state: CartState, action: CartAction): CartState {
                 );
             } else {
                 const newItem: CartItem = {
-                    id: `temp-${product.id}-${Date.now()}`,
+                    id: `temp-${product.id}-${subscriptionTier || 'base'}-${Date.now()}`,
                     product,
                     quantity,
+                    subscription_tier: subscriptionTier,
                 };
                 newItems = [...state.items, newItem];
             }
@@ -195,7 +216,7 @@ export function CartProvider({ children }: CartProviderProps) {
 
     // Load cart on mount
     useEffect(() => {
-        loadCart();
+        loadCart(false);
     }, []);
 
     // Save to localStorage whenever items change (for guest users)
@@ -203,7 +224,7 @@ export function CartProvider({ children }: CartProviderProps) {
         saveCartToStorage(state.items);
     }, [state.items]);
 
-    // Main function to load cart (from database if authenticated, localStorage if guest)
+    // Main function to load cart
     const loadCart = async (forceAuthCheck?: boolean) => {
         dispatch({ type: 'SET_LOADING', payload: true });
 
@@ -211,32 +232,30 @@ export function CartProvider({ children }: CartProviderProps) {
             const userIsAuthenticated = forceAuthCheck ?? await isAuthenticated();
 
             if (userIsAuthenticated) {
-                // Load from database
                 const response = await axios.get('/api/cart/get');
                 if (response.data.success && response.data.data.items) {
                     const backendItems = response.data.data.items.map((item: any) => ({
                         id: item.id,
                         product: item.product,
-                        quantity: item.quantity
+                        quantity: item.quantity,
+                        subscription_tier: item.subscription_tier,
                     }));
                     dispatch({ type: 'SET_CART', payload: backendItems });
                 } else {
                     dispatch({ type: 'SET_CART', payload: [] });
                 }
             } else {
-                // Load from localStorage
                 const localItems = loadCartFromStorage();
                 dispatch({ type: 'SET_CART', payload: localItems });
             }
         } catch (error) {
             console.error('Failed to load cart:', error);
-            // Fallback to localStorage
             const localItems = loadCartFromStorage();
             dispatch({ type: 'SET_CART', payload: localItems });
         }
     };
 
-    // Sync localStorage cart to database (called after login)
+    // Sync localStorage cart to database
     const syncLocalCartToDatabase = async () => {
         dispatch({ type: 'SET_SYNCING', payload: true });
 
@@ -247,20 +266,18 @@ export function CartProvider({ children }: CartProviderProps) {
                 return;
             }
 
-            // Clear any existing cart in database first
             await axios.delete('/api/cart/clear');
 
-            // Add each item to database
             for (const item of localItems) {
                 await axios.post('/api/cart/add', {
                     product_id: item.product.id,
-                    quantity: item.quantity
+                    quantity: item.quantity,
+                    subscription_tier: item.subscription_tier || null,
                 });
             }
 
-            // Clear localStorage and reload from database
             clearCartFromStorage();
-            await loadCart(true); // Force authenticated load
+            await loadCart(true);
 
             toast.success('Cart synced successfully!');
         } catch (error) {
@@ -271,30 +288,41 @@ export function CartProvider({ children }: CartProviderProps) {
     };
 
     // Add item to cart
-    const addItem = async (product: Product, quantity = 1) => {
+    const addItem = async (product: Product, quantity = 1, subscriptionTier?: string) => {
         try {
             const userIsAuthenticated = await isAuthenticated();
 
             if (userIsAuthenticated) {
-                // Add to database
                 const response = await axios.post('/api/cart/add', {
                     product_id: product.id,
-                    quantity: quantity
+                    quantity: quantity,
+                    subscription_tier: subscriptionTier || null,
                 });
 
                 if (response.data.success) {
-                    // Reload cart from database to get fresh data
-                    await loadCart(true);
+                    const backendItems = response.data.data.items.map((item: any) => ({
+                        id: item.id,
+                        product: item.product,
+                        quantity: item.quantity,
+                        subscription_tier: item.subscription_tier,
+                    }));
+                    dispatch({ type: 'SET_CART', payload: backendItems });
                     toast.success('Product added to cart successfully!');
+                } else {
+                    throw new Error(response.data.message || 'Failed to add item');
                 }
             } else {
-                // Add to localStorage only
-                dispatch({ type: 'ADD_ITEM_LOCAL', payload: { product, quantity } });
+                dispatch({ 
+                    type: 'ADD_ITEM_LOCAL', 
+                    payload: { product, quantity, subscriptionTier } 
+                });
                 toast.success('Product added to cart successfully!');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to add item:', error);
-            toast.error('Failed to add item to cart');
+            const errorMsg = error.response?.data?.message || error.message || 'Failed to add item to cart';
+            toast.error(errorMsg);
+            throw error;
         }
     };
 
@@ -304,13 +332,13 @@ export function CartProvider({ children }: CartProviderProps) {
             const userIsAuthenticated = await isAuthenticated();
 
             if (userIsAuthenticated && typeof itemId === 'number') {
-                // Remove from database
-                await axios.delete(`/api/cart/items/${itemId}`);
-                // Reload cart from database
-                await loadCart(true);
-                toast.success('Product removed from cart successfully!');
+                const response = await axios.delete(`/api/cart/items/${itemId}`);
+                
+                if (response.data.success) {
+                    await loadCart(true);
+                    toast.success('Product removed from cart successfully!');
+                }
             } else {
-                // Remove from localStorage only
                 dispatch({ type: 'REMOVE_ITEM_LOCAL', payload: itemId });
                 toast.success('Product removed from cart successfully!');
             }
@@ -331,12 +359,12 @@ export function CartProvider({ children }: CartProviderProps) {
             const userIsAuthenticated = await isAuthenticated();
 
             if (userIsAuthenticated && typeof itemId === 'number') {
-                // Update in database
-                await axios.put(`/api/cart/items/${itemId}`, { quantity });
-                // Reload cart from database
-                await loadCart(true);
+                const response = await axios.put(`/api/cart/items/${itemId}`, { quantity });
+                
+                if (response.data.success) {
+                    await loadCart(true);
+                }
             } else {
-                // Update in localStorage only
                 dispatch({ type: 'UPDATE_QUANTITY_LOCAL', payload: { id: itemId, quantity } });
             }
         } catch (error) {
@@ -351,17 +379,14 @@ export function CartProvider({ children }: CartProviderProps) {
             const userIsAuthenticated = await isAuthenticated();
 
             if (userIsAuthenticated) {
-                // Clear database cart
                 await axios.delete('/api/cart/clear');
             }
 
-            // Always clear localStorage and local state
             clearCartFromStorage();
             dispatch({ type: 'CLEAR_CART_LOCAL' });
             toast.success('Cart cleared successfully!');
         } catch (error) {
             console.error('Failed to clear cart:', error);
-            // Still clear local state
             clearCartFromStorage();
             dispatch({ type: 'CLEAR_CART_LOCAL' });
             toast.error('Failed to clear cart from server');
@@ -370,8 +395,8 @@ export function CartProvider({ children }: CartProviderProps) {
 
     // Get quantity of specific product
     const getItemQuantity = (productId: number): number => {
-        const item = state.items.find(item => item.product.id === productId);
-        return item ? item.quantity : 0;
+        const items = state.items.filter(item => item.product.id === productId);
+        return items.reduce((sum, item) => sum + item.quantity, 0);
     };
 
     const value: CartContextType = {

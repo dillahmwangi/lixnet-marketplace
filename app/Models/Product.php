@@ -1,6 +1,5 @@
 <?php
 // File: app/Models/Product.php
-// ADD THESE TO YOUR EXISTING PRODUCT MODEL
 
 namespace App\Models;
 
@@ -32,6 +31,9 @@ class Product extends Model
         'subscription_tiers' => 'array',
     ];
 
+    // CRITICAL FIX: Append subscription_tiers to JSON responses
+    protected $appends = ['formatted_subscription_tiers'];
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
@@ -42,11 +44,51 @@ class Product extends Model
         return $this->hasMany(CartItem::class);
     }
 
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
     }
 
+    /**
+     * Get formatted subscription tiers for JSON responses
+     * This ensures subscription_tiers is always included in API responses
+     */
+    public function getFormattedSubscriptionTiersAttribute()
+    {
+        if (!$this->is_subscription) {
+            return null;
+        }
+
+        // Return the subscription_tiers from database if exists
+        if (!empty($this->subscription_tiers) && is_array($this->subscription_tiers)) {
+            return $this->subscription_tiers;
+        }
+
+        // Fallback to default tiers if not set
+        return [
+            'free' => [
+                'price' => 0,
+                'features' => 'Basic features with limitations'
+            ],
+            'basic' => [
+                'price' => $this->price,
+                'features' => 'Standard features for small businesses'
+            ],
+            'premium' => [
+                'price' => $this->price * 2,
+                'features' => 'Advanced features for enterprises'
+            ]
+        ];
+    }
+
+    /**
+     * Get subscription tiers as array (for internal use)
+     */
     public function subscriptionTiers(): array
     {
         if (!$this->is_subscription) {
@@ -55,11 +97,14 @@ class Product extends Model
 
         return $this->subscription_tiers ?? [
             'free' => ['price' => 0, 'features' => 'Basic features'],
-            'basic' => ['price' => 500, 'features' => 'Standard features'],
-            'premium' => ['price' => 1500, 'features' => 'All features']
+            'basic' => ['price' => $this->price, 'features' => 'Standard features'],
+            'premium' => ['price' => $this->price * 2, 'features' => 'All features']
         ];
     }
 
+    /**
+     * Get price for a specific tier
+     */
     public function getTierPrice(string $tier): ?float
     {
         $tiers = $this->subscriptionTiers();
@@ -82,5 +127,21 @@ class Product extends Model
     public function getFormattedPriceAttribute(): string
     {
         return 'KSh ' . number_format((float) $this->price, 0);
+    }
+
+    /**
+     * Override toArray to ensure subscription_tiers is included
+     */
+    public function toArray()
+    {
+        $array = parent::toArray();
+        
+        // Rename formatted_subscription_tiers to subscription_tiers in output
+        if (isset($array['formatted_subscription_tiers'])) {
+            $array['subscription_tiers'] = $array['formatted_subscription_tiers'];
+            unset($array['formatted_subscription_tiers']);
+        }
+        
+        return $array;
     }
 }

@@ -28,13 +28,13 @@ export function MarketplaceApp() {
     };
 
     return (
-        <AuthProvider>
-            <CartProvider>
-                <div className="min-h-screen">
-                    {renderCurrentPage()}
-                </div>
-            </CartProvider>
-        </AuthProvider>
+
+
+        <div className="min-h-screen">
+            {renderCurrentPage()}
+        </div>
+
+
     );
 }
 

@@ -144,13 +144,6 @@ export default function Marketplace() {
         setSelectedProductId(null);
     };
 
-    const handleSelectPlan = (productId: number, tier: string, price: number) => {
-        console.log(`Selected ${tier} tier for product ${productId} at KSh ${price}/month`);
-        toast.success(`Selected ${tier} tier - Proceeding to checkout`);
-        // Add subscription to cart logic here
-        handleBackToMarketplace();
-    };
-
     const renderProductGrid = () => {
         const sortedProducts = filteredProducts.sort((a, b) => a.id - b.id);
 
@@ -244,7 +237,6 @@ export default function Marketplace() {
                 <ProductDetails
                     productId={selectedProductId}
                     onBack={handleBackToMarketplace}
-                    onSelectPlan={handleSelectPlan}
                 />
             </MarketplaceLayout>
         );

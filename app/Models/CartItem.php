@@ -11,6 +11,7 @@ class CartItem extends Model
         'cart_id',
         'product_id',
         'quantity',
+        'subscription_tier',
     ];
 
     protected $casts = [
@@ -51,5 +52,29 @@ class CartItem extends Model
         }
 
         return $this->update(['quantity' => $quantity]);
+    }
+
+    /**
+     * Update the subscription tier for this cart item.
+     */
+    public function updateSubscriptionTier(string $tier): bool
+    {
+        return $this->update(['subscription_tier' => $tier]);
+    }
+
+    /**
+     * Get subscription tier (if any).
+     */
+    public function getSubscriptionTier(): ?string
+    {
+        return $this->subscription_tier;
+    }
+
+    /**
+     * Check if this item is for a subscription product.
+     */
+    public function isSubscriptionItem(): bool
+    {
+        return $this->product->is_subscription ?? false;
     }
 }

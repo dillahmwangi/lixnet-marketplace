@@ -35,6 +35,27 @@ interface CheckoutFormData {
     notes: string;
 }
 
+interface SubscriptionTier {
+    price: number;
+    features: string;
+}
+
+interface CartItemWithTier {
+    id: number | string;
+    product: {
+        id: number;
+        title: string;
+        price: number;
+        category: {
+            name: string;
+        };
+        is_subscription?: boolean;
+        subscription_tiers?: Record<string, SubscriptionTier> | null;
+    };
+    quantity: number;
+    subscription_tier?: string;
+}
+
 export default function Checkout() {
     const { state } = useCart();
     const { user, isLoading, checkAuth, logout } = useAuth();
@@ -81,6 +102,15 @@ export default function Checkout() {
     const formatPrice = (price: number) => {
         return `KSh ${price.toLocaleString()}`;
     };
+
+    // Helper function to get tier-based price
+    function getItemPrice(item: CartItemWithTier): number {
+        if (item.subscription_tier && item.product.is_subscription && item.product.subscription_tiers) {
+            const tierData = item.product.subscription_tiers[item.subscription_tier];
+            return tierData ? tierData.price : item.product.price;
+        }
+        return item.product.price;
+    }
 
     function getProductIcon(categoryName: string) {
         const iconMap: { [key: string]: JSX.Element } = {
@@ -139,18 +169,29 @@ export default function Checkout() {
         setIsProcessing(true);
 
         try {
-            // Step 1: Create the order WITHOUT payment_method
+            // Create order with tier-based pricing
             const orderData = {
                 full_name: formData.fullName,
                 email: formData.email,
                 phone: formData.phone,
                 company: formData.company,
                 notes: formData.notes,
-                items: state.items.map(item => ({
-                    product_id: item.product.id,
-                    quantity: item.quantity,
-                    unit_price: item.product.price
-                })),
+                items: state.items.map((item: CartItemWithTier) => {
+                    // Get tier-specific price
+                    let unitPrice = item.product.price;
+                    
+                    if (item.subscription_tier && item.product.is_subscription && item.product.subscription_tiers) {
+                        const tierData = item.product.subscription_tiers[item.subscription_tier];
+                        unitPrice = tierData ? tierData.price : item.product.price;
+                    }
+                    
+                    return {
+                        product_id: item.product.id,
+                        quantity: item.quantity,
+                        unit_price: unitPrice,
+                        subscription_tier: item.subscription_tier || null
+                    };
+                }),
                 total_amount: state.totalValue,
                 currency: 'KES'
             };
@@ -164,7 +205,7 @@ export default function Checkout() {
             const order = orderResponse.data.data.order;
             toast.success("Order created successfully! Initiating payment...");
 
-            // Step 2: Initiate payment
+            // Initiate payment
             const paymentResponse = await axios.post(`/api/orders/${order.id}/pay`);
 
             if (!paymentResponse.data.success) {
@@ -360,7 +401,7 @@ export default function Checkout() {
                                 <CardTitle>Order Summary</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                {state.items.map((item, index) => (
+                                {state.items.map((item: CartItemWithTier, index) => (
                                     <div key={item.id}>
                                         {index > 0 && <Separator className="my-4 bg-border-color" />}
 
@@ -374,16 +415,31 @@ export default function Checkout() {
                                                     {item.product.title}
                                                 </h4>
                                                 <p className="text-sm text-gray-500">
-                                                    Qty: {item.quantity} × {formatPrice(item.product.price)}
+                                                    Qty: {item.quantity}
                                                 </p>
                                                 <Badge variant="secondary" className="text-xs bg-background-color text-text-dark border border-border-color mt-1">
                                                     {item.product.category.name}
                                                 </Badge>
+
+                                                {/* Display Subscription Tier */}
+                                                {item.subscription_tier && (
+                                                    <div className="mt-2 space-y-1">
+                                                        <Badge className="text-xs bg-green-100 text-green-800 border-green-300 font-semibold">
+                                                            Plan: {item.subscription_tier.charAt(0).toUpperCase() + item.subscription_tier.slice(1)}
+                                                        </Badge>
+                                                        <p className="text-xs text-gray-500">
+                                                            Monthly subscription
+                                                        </p>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <div className="text-right">
                                                 <div className="font-semibold text-dark-blue">
-                                                    {formatPrice(item.product.price * item.quantity)}
+                                                    {formatPrice(getItemPrice(item))}
+                                                    {item.subscription_tier && (
+                                                        <div className="text-xs text-gray-500 font-normal">/month</div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
