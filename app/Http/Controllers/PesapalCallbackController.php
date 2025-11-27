@@ -53,6 +53,13 @@ class PesapalCallbackController extends Controller
                 return response()->json(['error' => 'Callback processing failed'], 500);
             }
 
+            // DIAGNOSTIC: Log full transaction details
+            Log::info('🔍 DIAGNOSTIC: Full transaction details from Pesapal', [
+                'transaction_details' => $callbackResult['transaction_details'] ?? [],
+                'payment_status_code' => $callbackResult['payment_status_code'] ?? null,
+                'order_status_from_mapping' => $callbackResult['order_status'] ?? null
+            ]);
+
             // Find the order using payment reference
             $order = Order::where('payment_reference', $callbackResult['order_tracking_id'])->first();
 
@@ -64,12 +71,37 @@ class PesapalCallbackController extends Controller
             DB::beginTransaction();
 
             try {
+                // Determine final order status
+                // In sandbox, Pesapal often doesn't return proper status codes
+                // So we'll check payment_status_description as a fallback
+                $finalOrderStatus = $callbackResult['order_status'];
+                
+                // DIAGNOSTIC: Check alternative status indicators
+                $transactionDetails = $callbackResult['transaction_details'] ?? [];
+                $paymentStatusDescription = $transactionDetails['payment_status_description'] ?? '';
+                
+                Log::info('🔍 DIAGNOSTIC: Status indicators', [
+                    'payment_status_code' => $callbackResult['payment_status_code'],
+                    'payment_status_description' => $paymentStatusDescription,
+                    'status_code' => $transactionDetails['status_code'] ?? null,
+                    'message' => $transactionDetails['message'] ?? null,
+                    'confirmation_code' => $transactionDetails['confirmation_code'] ?? null
+                ]);
+
+                // Fallback: If we have a confirmation code or certain status descriptions, consider it paid
+                if (!empty($transactionDetails['confirmation_code']) || 
+                    stripos($paymentStatusDescription, 'completed') !== false ||
+                    stripos($paymentStatusDescription, 'paid') !== false) {
+                    Log::info('🔍 DIAGNOSTIC: Detected payment completion via confirmation code or description');
+                    $finalOrderStatus = 'paid';
+                }
+
                 // Update order status
                 $updateData = [
-                    'status' => $callbackResult['order_status']
+                    'status' => $finalOrderStatus
                 ];
 
-                if ($callbackResult['order_status'] === 'paid') {
+                if ($finalOrderStatus === 'paid') {
                     $updateData['paid_at'] = now();
                 }
 
@@ -78,13 +110,22 @@ class PesapalCallbackController extends Controller
                 Log::info('Order status updated from callback', [
                     'order_id' => $order->id,
                     'order_reference' => $order->order_reference,
-                    'new_status' => $callbackResult['order_status'],
-                    'payment_reference' => $callbackResult['order_tracking_id']
+                    'new_status' => $finalOrderStatus,
+                    'payment_reference' => $callbackResult['order_tracking_id'],
+                    'reason' => 'Callback processing'
                 ]);
 
                 // If payment was successful, create subscriptions for subscription products
-                if ($callbackResult['order_status'] === 'paid') {
+                if ($finalOrderStatus === 'paid') {
+                    Log::info('✅ Payment confirmed, creating subscriptions from order', [
+                        'order_id' => $order->id
+                    ]);
                     $this->createSubscriptionsFromOrder($order);
+                } else {
+                    Log::warning('⚠️ Payment not confirmed, subscriptions NOT created', [
+                        'order_id' => $order->id,
+                        'order_status' => $finalOrderStatus
+                    ]);
                 }
 
                 DB::commit();
@@ -92,7 +133,7 @@ class PesapalCallbackController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Callback processed successfully',
-                    'order_status' => $callbackResult['order_status']
+                    'order_status' => $finalOrderStatus
                 ]);
             } catch (\Exception $e) {
                 DB::rollBack();
@@ -142,6 +183,16 @@ class PesapalCallbackController extends Controller
             $transactionStatus = $this->pesapalService->getTransactionStatus($orderTrackingId);
 
             if ($transactionStatus['success']) {
+                $paymentStatusCode = $transactionStatus['payment_status_code'] ?? 0;
+                $paymentStatusDescription = $transactionStatus['payment_status_description'] ?? '';
+                $confirmationCode = $transactionStatus['confirmation_code'] ?? null;
+
+                Log::info('🔍 DIAGNOSTIC: Confirmation page transaction status', [
+                    'payment_status_code' => $paymentStatusCode,
+                    'payment_status_description' => $paymentStatusDescription,
+                    'confirmation_code' => $confirmationCode
+                ]);
+
                 $statusMapping = [
                     0 => 'pending',
                     1 => 'paid',
@@ -149,13 +200,22 @@ class PesapalCallbackController extends Controller
                     3 => 'cancelled'
                 ];
 
-                $paymentStatusCode = $transactionStatus['payment_status_code'] ?? 0;
+                $paymentStatusCode = $paymentStatusCode === '' || $paymentStatusCode === null ? 0 : (int)$paymentStatusCode;
                 $newStatus = $statusMapping[$paymentStatusCode] ?? 'pending';
+
+                // Fallback: Check confirmation code and description
+                if (!empty($confirmationCode) || 
+                    stripos($paymentStatusDescription, 'completed') !== false ||
+                    stripos($paymentStatusDescription, 'paid') !== false) {
+                    Log::info('🔍 DIAGNOSTIC: Detected payment completion via confirmation code or description on confirmation page');
+                    $newStatus = 'paid';
+                }
 
                 Log::info('Updating order status from confirmation', [
                     'order_id' => $order->id,
                     'old_status' => $order->status,
-                    'new_status' => $newStatus
+                    'new_status' => $newStatus,
+                    'reason' => 'Confirmation page redirect'
                 ]);
 
                 DB::beginTransaction();
@@ -170,6 +230,9 @@ class PesapalCallbackController extends Controller
 
                         // Create subscriptions if payment was successful
                         if ($newStatus === 'paid') {
+                            Log::info('✅ Payment confirmed on confirmation page, creating subscriptions from order', [
+                                'order_id' => $order->id
+                            ]);
                             $this->createSubscriptionsFromOrder($order);
                         }
                     }
@@ -214,14 +277,31 @@ class PesapalCallbackController extends Controller
     private function createSubscriptionsFromOrder(Order $order): void
     {
         try {
+            // Load order items with products
             $order->load('items.product');
+
+            Log::info('📄 Creating subscriptions from order', [
+                'order_id' => $order->id,
+                'order_reference' => $order->order_reference,
+                'user_id' => $order->user_id,
+                'items_count' => $order->items->count()
+            ]);
 
             foreach ($order->items as $item) {
                 $product = $item->product;
 
+                Log::info('Processing order item for subscription', [
+                    'order_item_id' => $item->id,
+                    'product_id' => $product->id,
+                    'product_title' => $product->title,
+                    'is_subscription' => $product->is_subscription,
+                    'subscription_tier' => $item->subscription_tier,
+                    'unit_price' => $item->unit_price
+                ]);
+
                 // Check if product is a subscription product
                 if (!$product->is_subscription) {
-                    Log::info('Product is not a subscription, skipping', [
+                    Log::info('❌ Product is not a subscription, skipping', [
                         'product_id' => $product->id,
                         'product_title' => $product->title
                     ]);
@@ -235,30 +315,49 @@ class PesapalCallbackController extends Controller
                     ->first();
 
                 if ($existingSubscription) {
-                    Log::info('User already has active subscription for this product', [
+                    Log::info('⚠️ User already has active subscription for this product', [
                         'subscription_id' => $existingSubscription->id,
-                        'product_id' => $product->id
+                        'product_id' => $product->id,
+                        'existing_tier' => $existingSubscription->tier
                     ]);
                     continue;
                 }
 
-                // Get default tier (usually 'basic' or first available tier)
-                $defaultTier = 'basic';
-                $tierPrice = $product->getTierPrice($defaultTier);
+                // Get tier from order item (selected by user), default to basic
+                $selectedTier = $item->subscription_tier ?? 'basic';
+                
+                Log::info('Getting tier price', [
+                    'product_id' => $product->id,
+                    'selected_tier' => $selectedTier,
+                    'available_tiers' => $product->subscription_tiers
+                ]);
+
+                // Get tier price from product
+                $tierPrice = $product->getTierPrice($selectedTier);
 
                 if ($tierPrice === null) {
-                    Log::warning('Default tier not found for product', [
+                    Log::error('❌ Tier price not found for selected tier', [
                         'product_id' => $product->id,
-                        'default_tier' => $defaultTier
+                        'product_title' => $product->title,
+                        'selected_tier' => $selectedTier,
+                        'available_tiers' => $product->subscription_tiers
                     ]);
                     continue;
                 }
 
-                // Create subscription
+                Log::info('Creating subscription with selected tier', [
+                    'user_id' => $order->user_id,
+                    'product_id' => $product->id,
+                    'tier' => $selectedTier,
+                    'price' => $tierPrice,
+                    'currency' => $order->currency
+                ]);
+
+                // Create subscription with the tier selected by user
                 $subscription = Subscription::create([
                     'user_id' => $order->user_id,
                     'product_id' => $product->id,
-                    'tier' => $defaultTier,
+                    'tier' => $selectedTier,
                     'status' => 'active',
                     'price' => $tierPrice,
                     'currency' => $order->currency,
@@ -268,20 +367,40 @@ class PesapalCallbackController extends Controller
                     'next_billing_date' => now()->addMonth()
                 ]);
 
-                // Send subscription email
-                $this->subscriptionService->sendSubscriptionCreatedEmail($subscription);
+                // Send subscription confirmation email
+                try {
+                    $this->subscriptionService->sendSubscriptionCreatedEmail($subscription);
+                    Log::info('📧 Subscription confirmation email sent', [
+                        'subscription_id' => $subscription->id
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send subscription email: ' . $e->getMessage());
+                }
 
-                Log::info('Subscription created from order', [
+                Log::info('✅ Subscription created successfully from order', [
                     'subscription_id' => $subscription->id,
+                    'subscription_reference' => $subscription->subscription_reference,
                     'order_id' => $order->id,
+                    'order_reference' => $order->order_reference,
                     'product_id' => $product->id,
-                    'tier' => $defaultTier,
-                    'user_id' => $order->user_id
+                    'product_title' => $product->title,
+                    'tier' => $selectedTier,
+                    'price' => $tierPrice,
+                    'user_id' => $order->user_id,
+                    'started_at' => $subscription->started_at->format('Y-m-d H:i:s'),
+                    'next_billing_date' => $subscription->next_billing_date->format('Y-m-d H:i:s')
                 ]);
             }
-        } catch (\Exception $e) {
-            Log::error('Error creating subscriptions from order: ' . $e->getMessage(), [
+
+            Log::info('✅ Finished creating subscriptions from order', [
                 'order_id' => $order->id,
+                'total_items_processed' => $order->items->count()
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('❌ Error creating subscriptions from order: ' . $e->getMessage(), [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
         }

@@ -293,13 +293,25 @@ class PesapalService
                 3 => 'cancelled'
             ];
 
-            $paymentStatusCode = $transactionStatus['payment_status_code'] ?? 0;
+            // FIX: Handle empty string and null values properly
+            $paymentStatusCode = $transactionStatus['payment_status_code'];
+            
+            // Convert empty string to 0
+            if ($paymentStatusCode === '' || $paymentStatusCode === null) {
+                $paymentStatusCode = 0;
+            } else {
+                $paymentStatusCode = (int)$paymentStatusCode;
+            }
+
             $orderStatus = $statusMapping[$paymentStatusCode] ?? 'pending';
 
-            Log::info('Callback processed successfully', [
+            Log::info('🔍 DIAGNOSTIC: Callback processed', [
                 'order_tracking_id' => $orderTrackingId,
                 'payment_status_code' => $paymentStatusCode,
-                'order_status' => $orderStatus
+                'payment_status_description' => $transactionStatus['payment_status_description'] ?? 'N/A',
+                'confirmation_code' => $transactionStatus['confirmation_code'] ?? 'N/A',
+                'order_status' => $orderStatus,
+                'full_transaction_data' => $transactionStatus
             ]);
 
             return [
@@ -394,7 +406,7 @@ class PesapalService
                     'ipn_status_description' => $data['ipn_status_description'] ?? null,
                     'created_date' => $data['created_date'] ?? null,
                     'ipn_notification_type' => $data['ipn_notification_type_description'] ?? 'GET',
-                    'message' => '✅ IPN registered successfully! Copy the ipn_id to PESAPAL_NOTIFICATION_ID in your .env file'
+                    'message' => 'âœ… IPN registered successfully! Copy the ipn_id to PESAPAL_NOTIFICATION_ID in your .env file'
                 ];
             }
 
