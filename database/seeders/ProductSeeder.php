@@ -37,7 +37,7 @@ class ProductSeeder extends Seeder
                         'features' => 'Up to 50 employees, NHIF & NSSF integration'
                     ],
                     'premium' => [
-                        'price' => 5999,
+                        'price' => 2,
                         'features' => 'Unlimited employees, KRA compliance, advanced reports'
                     ]
                 ]

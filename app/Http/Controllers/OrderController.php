@@ -360,14 +360,31 @@ class OrderController extends Controller
     /**
      * Create subscriptions from a paid order
      * This is called by PesapalCallbackController after payment confirmation
+     * 
+     * IMPORTANT: This method is PUBLIC so it can be called from PesapalCallbackController
      */
     public function createSubscriptionsFromOrder(Order $order): void
     {
         try {
+            // Load order items with products and their subscription tiers
             $order->load('items.product');
+
+            Log::info('Creating subscriptions from order', [
+                'order_id' => $order->id,
+                'order_reference' => $order->order_reference,
+                'items_count' => $order->items->count()
+            ]);
 
             foreach ($order->items as $item) {
                 $product = $item->product;
+
+                Log::info('Processing order item', [
+                    'order_item_id' => $item->id,
+                    'product_id' => $product->id,
+                    'product_title' => $product->title,
+                    'is_subscription' => $product->is_subscription,
+                    'subscription_tier' => $item->subscription_tier
+                ]);
 
                 // Skip if not a subscription product
                 if (!$product->is_subscription) {
@@ -378,31 +395,42 @@ class OrderController extends Controller
                     continue;
                 }
 
-                // Check if user already has active subscription
+                // Check if user already has active subscription to this product
                 $existingSubscription = \App\Models\Subscription::where('user_id', $order->user_id)
                     ->where('product_id', $product->id)
                     ->where('status', 'active')
                     ->first();
 
                 if ($existingSubscription) {
-                    Log::info('User already has active subscription', [
+                    Log::info('User already has active subscription, skipping', [
                         'subscription_id' => $existingSubscription->id,
-                        'product_id' => $product->id
+                        'product_id' => $product->id,
+                        'user_id' => $order->user_id
                     ]);
                     continue;
                 }
 
-                // Use selected tier or default to basic
+                // Use selected tier from order item or default to basic
                 $tier = $item->subscription_tier ?? 'basic';
+                
+                // Get tier price from product
                 $tierPrice = $product->getTierPrice($tier);
 
                 if ($tierPrice === null) {
-                    Log::warning('Tier not found for product', [
+                    Log::warning('Tier price not found for product', [
                         'product_id' => $product->id,
-                        'tier' => $tier
+                        'tier' => $tier,
+                        'available_tiers' => $product->subscription_tiers
                     ]);
                     continue;
                 }
+
+                Log::info('Creating subscription', [
+                    'user_id' => $order->user_id,
+                    'product_id' => $product->id,
+                    'tier' => $tier,
+                    'price' => $tierPrice
+                ]);
 
                 // Create subscription
                 $subscription = \App\Models\Subscription::create([
@@ -418,20 +446,37 @@ class OrderController extends Controller
                     'next_billing_date' => now()->addMonth()
                 ]);
 
-                // Send subscription email
-                $this->subscriptionService->sendSubscriptionCreatedEmail($subscription);
+                // Send subscription confirmation email
+                try {
+                    $this->subscriptionService->sendSubscriptionCreatedEmail($subscription);
+                    Log::info('Subscription confirmation email sent', [
+                        'subscription_id' => $subscription->id
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send subscription email: ' . $e->getMessage());
+                }
 
-                Log::info('Subscription created from order', [
+                Log::info('✅ Subscription created successfully from order', [
                     'subscription_id' => $subscription->id,
+                    'subscription_reference' => $subscription->subscription_reference,
                     'order_id' => $order->id,
                     'product_id' => $product->id,
+                    'product_title' => $product->title,
                     'tier' => $tier,
-                    'user_id' => $order->user_id
+                    'price' => $tierPrice,
+                    'user_id' => $order->user_id,
+                    'next_billing_date' => $subscription->next_billing_date->format('Y-m-d')
                 ]);
             }
+
+            Log::info('Finished creating subscriptions from order', [
+                'order_id' => $order->id
+            ]);
+
         } catch (\Exception $e) {
-            Log::error('Error creating subscriptions from order: ' . $e->getMessage(), [
+            Log::error('❌ Error creating subscriptions from order: ' . $e->getMessage(), [
                 'order_id' => $order->id,
+                'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
         }
