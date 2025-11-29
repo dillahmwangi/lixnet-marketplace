@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Check, Star, StarHalf, Briefcase, PiggyBank, GraduationCap, Calculator, Truck, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Check, Star, StarHalf, Briefcase, PiggyBank, GraduationCap, Calculator, Truck, ShoppingBag, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { JSX } from 'react';
@@ -69,6 +69,11 @@ function renderStars(rating: number) {
   }
 
   return stars;
+}
+
+// Helper function to parse features
+function parseFeatures(featuresString: string): string[] {
+  return featuresString.split('|').map(f => f.trim()).filter(f => f);
 }
 
 export default function ProductDetails({ product }: ProductDetailsProps) {
@@ -173,6 +178,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
           <div className="grid md:grid-cols-3 gap-6 mb-8">
             {Object.entries(product.subscription_tiers).map(([tier, tierData]) => {
               const isSelected = selectedTier === tier;
+              const features = parseFeatures(tierData.features);
 
               return (
                 <div
@@ -197,11 +203,14 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                     <p className="text-gray-600 text-sm">per month</p>
                   </div>
 
-                  {/* Features */}
-                  <div className="mb-6">
-                    <p className="text-gray-700 text-sm leading-relaxed">
-                      {tierData.features}
-                    </p>
+                  {/* Features with Checkmarks */}
+                  <div className="mb-6 space-y-3">
+                    {features.map((feature, idx) => (
+                      <div key={idx} className="flex items-start gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-gray-700 text-sm">{feature}</span>
+                      </div>
+                    ))}
                   </div>
 
                   {/* Select Button */}
