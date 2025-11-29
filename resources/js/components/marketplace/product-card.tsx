@@ -1,10 +1,11 @@
-import { Star, StarHalf, Plus, Check, Briefcase, PiggyBank, GraduationCap, Calculator, Truck, ShoppingBag, Eye } from 'lucide-react';
+import { Star, StarHalf, Plus, Check, Briefcase, PiggyBank, GraduationCap, Calculator, Truck, ShoppingBag, Eye, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/context/cart-context';
 import { JSX } from 'react';
 import toast from 'react-hot-toast';
+import { router } from '@inertiajs/react';
 
 interface Product {
     id: number;
@@ -61,7 +62,6 @@ function getProductIcon(categoryName: string) {
         'Inventory': <Truck className='size-16 text-brand-blue' />,
     };
 
-    // Find matching category or default
     const iconClass = Object.entries(iconMap).find(([key]) =>
         categoryName.toLowerCase().includes(key.toLowerCase())
     )?.[1] || <Briefcase />;
@@ -69,7 +69,8 @@ function getProductIcon(categoryName: string) {
     return iconClass;
 }
 
-export function ProductCard({ product, onAddToCart, onViewDetails }: ProductCardProps) {
+export function ProductCard(props: ProductCardProps) {
+    const { product, onAddToCart, onViewDetails } = props;
     const { addItem, getItemQuantity } = useCart();
     const itemQuantity = getItemQuantity(product.id);
     const iconClass = getProductIcon(product.category.name);
@@ -85,13 +86,21 @@ export function ProductCard({ product, onAddToCart, onViewDetails }: ProductCard
         try {
             await addItem(product, 1);
             onAddToCart?.(product);
+            toast.success('Added to cart!');
         } catch (error) {
             console.error('Failed to add item:', error);
+            toast.error('Failed to add to cart');
         }
     };
 
     const handleViewDetails = () => {
-        onViewDetails?.(product.id);
+        // Navigate to product details web route (singular /product, not /products)
+        router.visit(`/product/${product.id}`);
+    };
+
+    const handleViewPlans = () => {
+        // Navigate to the web route for subscriptions (not the API route)
+        router.visit('/my-subscriptions');
     };
 
     const formatPrice = (price: number) => {
@@ -145,37 +154,45 @@ export function ProductCard({ product, onAddToCart, onViewDetails }: ProductCard
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
+                    {/* View Details Button - Always visible */}
                     <Button
                         onClick={handleViewDetails}
                         variant="outline"
-                        className="flex-1 border-2 border-brand-blue text-brand-blue hover:bg-blue-50 font-medium py-2.5 transition-colors"
+                        className="w-full border-2 border-brand-blue text-brand-blue hover:bg-blue-50 font-medium py-2.5 transition-colors"
                     >
                         <Eye className="w-4 h-4 mr-2" />
-                        {product.is_subscription ? 'Select Plan' : 'View Details'}
+                        View Details
                     </Button>
-                    <Button
-                        onClick={handleAddToCart}
-                        className="flex-1 bg-brand-blue hover:bg-[#0052a3] text-white font-medium py-2.5 transition-colors"
-                        disabled={product.is_subscription}
-                    >
-                        {product.is_subscription ? (
-                            <>
-                                <Eye className="w-4 h-4 mr-2" />
-                                View Plans
-                            </>
-                        ) : itemQuantity > 0 ? (
-                            <>
-                                <Check className="w-4 h-4 mr-2" />
-                                ({itemQuantity})
-                            </>
-                        ) : (
-                            <>
-                                <Plus className="w-4 h-4 mr-2" />
-                                Add
-                            </>
-                        )}
-                    </Button>
+
+                    {/* Subscription-specific buttons */}
+                    {product.is_subscription ? (
+                        <Button
+                            onClick={handleViewPlans}
+                            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 transition-colors"
+                        >
+                            <Zap className="w-4 h-4 mr-2" />
+                            My Plans
+                        </Button>
+                    ) : (
+                        /* Add to Cart Button - Only for non-subscription products */
+                        <Button
+                            onClick={handleAddToCart}
+                            className="w-full bg-brand-blue hover:bg-[#0052a3] text-white font-medium py-2.5 transition-colors"
+                        >
+                            {itemQuantity > 0 ? (
+                                <>
+                                    <Check className="w-4 h-4 mr-2" />
+                                    In Cart ({itemQuantity})
+                                </>
+                            ) : (
+                                <>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Add to Cart
+                                </>
+                            )}
+                        </Button>
+                    )}
                 </div>
 
                 {/* Category Badge */}

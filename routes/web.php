@@ -49,6 +49,17 @@ Route::get('/checkout', function () {
     return Inertia::render('user/Checkout');
 })->name('checkout');
 
+// Product details route (singular /product to avoid API /products conflict)
+Route::get('/product/{product}', function (App\Models\Product $product) {
+    return Inertia::render('ProductDetails', [
+        'product' => $product->load('category'),
+    ]);
+})->name('products.show');
+
+// My subscriptions route
+Route::get('/my-subscriptions', function () {
+    return Inertia::render('UserSubscriptions');
+})->middleware(['auth'])->name('subscriptions.index');
 
 /*
 |--------------------------------------------------------------------------
