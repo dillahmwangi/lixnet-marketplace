@@ -30,15 +30,15 @@ class ProductSeeder extends Seeder
                 'subscription_tiers' => [
                     'free' => [
                         'price' => 0,
-                        'features' => 'Up to 10 employees, basic payroll'
+                        'features' => "Basic employee database management|Simple salary sheet generation|Manual payroll processing|Basic attendance tracking|Email payslip delivery|Monthly summary reports"
                     ],
                     'basic' => [
                         'price' => 1,
-                        'features' => 'Up to 50 employees, NHIF & NSSF integration'
+                        'features' => "Support for up to 50 employees|Automated NHIF deductions|NSSF contribution calculations|Advanced attendance tracking|Employee self-service portal|Monthly statutory reporting|Leave management system|Tax bracket calculations|Bulk payroll processing"
                     ],
                     'premium' => [
                         'price' => 2,
-                        'features' => 'Unlimited employees, KRA compliance, advanced reports'
+                        'features' => "Unlimited employee capacity|Full KRA tax compliance and PAYE submissions|Automated NHIF & NSSF integrations|Advanced leave management with accruals|Multi-department payroll processing|Real-time salary analytics dashboard|Custom benefit configurations|Audit trail and compliance logging|Priority technical support"
                     ]
                 ]
             ],
@@ -55,15 +55,15 @@ class ProductSeeder extends Seeder
                 'subscription_tiers' => [
                     'free' => [
                         'price' => 0,
-                        'features' => 'Up to 100 members, basic member management'
+                        'features' => "Basic member profile management|Manual savings account tracking|Simple transaction recording|Monthly member statements|Basic member search functionality|Contact information storage"
                     ],
                     'basic' => [
                         'price' => 3999,
-                        'features' => 'Up to 500 members, loan management, savings tracking'
+                        'features' => "Support for up to 500 members|Loan application workflow|Automated interest calculations|Savings account management|Dividend eligibility tracking|Member portfolio analysis|Payment reminder system|Monthly financial summaries|Member communication notifications"
                     ],
                     'premium' => [
                         'price' => 8999,
-                        'features' => 'Unlimited members, full SASRA compliance, dividend distribution'
+                        'features' => "Unlimited member capacity|SASRA-compliant regulatory reporting|Sophisticated dividend distribution engine|Advanced risk assessment tools|Real-time financial dashboards|Multi-branch management support|Member mobile access portal|Automated compliance audits|Dedicated account manager support"
                     ]
                 ]
             ],
@@ -79,15 +79,15 @@ class ProductSeeder extends Seeder
                 'subscription_tiers' => [
                     'free' => [
                         'price' => 0,
-                        'features' => 'Up to 50 active loans'
+                        'features' => "Basic loan tracking up to 50 loans|Simple application forms|Manual payment recording|Monthly loan status reports|Basic borrower statements|Email notifications"
                     ],
                     'basic' => [
                         'price' => 2999,
-                        'features' => 'Up to 500 active loans, M-Pesa integration'
+                        'features' => "Support for up to 500 active loans|M-Pesa payment integration|Flexible repayment schedules|Automated interest calculations|Loan documentation management|Weekly collection reports|Payment reminder system|Portfolio performance analysis|Borrower communication system"
                     ],
                     'premium' => [
                         'price' => 6499,
-                        'features' => 'Unlimited loans, advanced interest calculations, SMS reminders'
+                        'features' => "Unlimited loan capacity|Advanced M-Pesa and payment integrations|Multiple interest calculation methods|Automated SMS payment reminders|Advanced credit scoring system|Risk assessment and analytics|Multi-channel payment processing|Delinquency management tools|Comprehensive financial reporting"
                     ]
                 ]
             ],
@@ -104,15 +104,15 @@ class ProductSeeder extends Seeder
                 'subscription_tiers' => [
                     'free' => [
                         'price' => 0,
-                        'features' => 'Up to 100 students, basic records'
+                        'features' => "Basic student database for up to 100 students|Simple class management|Manual exam entry|Basic attendance marking|Monthly summary reports|Contact information storage"
                     ],
                     'basic' => [
                         'price' => 3500,
-                        'features' => 'Up to 500 students, fee management, exam tracking'
+                        'features' => "Support for up to 500 students|Advanced academic tracking system|Continuous assessment recording|Fee management and tracking|Examination result compilation|Digital report card generation|Parent access portal|Class performance analytics|Payment history tracking"
                     ],
                     'premium' => [
                         'price' => 7999,
-                        'features' => 'Unlimited students, parent portal, online fee payment'
+                        'features' => "Unlimited student capacity|Comprehensive parent portal with real-time updates|Online fee payment integration|Advanced examination analytics|Performance tracking and trending|Staff evaluation features|Payroll integration support|Customizable report cards|Mobile app access for parents"
                     ]
                 ]
             ],
@@ -128,15 +128,15 @@ class ProductSeeder extends Seeder
                 'subscription_tiers' => [
                     'free' => [
                         'price' => 0,
-                        'features' => 'Up to 50 students, basic fee tracking'
+                        'features' => "Basic fee tracking for up to 50 students|Manual payment recording|Simple balance calculation|Monthly fee reports|Email statements|Receipt generation"
                     ],
                     'basic' => [
                         'price' => 1999,
-                        'features' => 'Up to 300 students, M-Pesa integration, receipts'
+                        'features' => "Fee management for up to 300 students|M-Pesa payment integration|Automated receipt generation|Customizable fee structures|Payment reminder system|Arrears tracking and reporting|Multiple program support|Weekly collection reports|Balance inquiry system"
                     ],
                     'premium' => [
                         'price' => 4499,
-                        'features' => 'Unlimited students, payment reminders, detailed reports'
+                        'features' => "Unlimited student capacity|Advanced payment gateway integration|Multi-channel payment processing|Sophisticated reporting and analytics|Automated dunning system for overdue accounts|Parent portal with online payment|Bank reconciliation tools|Payment trend analysis|Priority support and training"
                     ]
                 ]
             ],
@@ -153,15 +153,15 @@ class ProductSeeder extends Seeder
                 'subscription_tiers' => [
                     'free' => [
                         'price' => 0,
-                        'features' => 'Single store, basic sales tracking'
+                        'features' => "Single terminal POS system|Basic sales recording|Manual product entry|Daily sales summary|Simple receipts|Cash reconciliation"
                     ],
                     'basic' => [
                         'price' => 2999,
-                        'features' => 'Single store, inventory management, daily reports'
+                        'features' => "Single store operation|Barcode scanning capability|Real-time inventory tracking|Low stock alerts|Daily sales reports|Revenue tracking by category|Customer database|Hardware printer support|Transaction history"
                     ],
                     'premium' => [
                         'price' => 6999,
-                        'features' => 'Multiple stores, advanced inventory, hardware support'
+                        'features' => "Multi-terminal and multi-store support|Advanced inventory management across branches|Supplier integration features|Comprehensive sales analytics|Customer loyalty programs|Sales commission tracking|Hardware setup and support|Advanced reporting dashboards|Performance metrics analysis"
                     ]
                 ]
             ],
@@ -177,15 +177,15 @@ class ProductSeeder extends Seeder
                 'subscription_tiers' => [
                     'free' => [
                         'price' => 0,
-                        'features' => 'Single store, basic inventory'
+                        'features' => "Single store inventory management|Basic stock tracking|Manual product entry|Customer contact management|Monthly reports|Supplier contact storage"
                     ],
                     'basic' => [
                         'price' => 2499,
-                        'features' => 'Up to 2 stores, customer management, supplier tracking'
+                        'features' => "Support for up to 2 stores|Centralized inventory control|Customer management system|Supplier tracking and orders|Purchase order generation|Stock movement reports|Multi-user access|Weekly inventory analysis|Performance metrics"
                     ],
                     'premium' => [
                         'price' => 5499,
-                        'features' => 'Unlimited stores, advanced reporting, analytics dashboard'
+                        'features' => "Unlimited store and branch capacity|Real-time inventory synchronization|Advanced supplier portal|Predictive analytics and forecasting|Profitability analysis by store|Automated reordering system|Comprehensive financial reporting|Integration with accounting system|Advanced dashboards and analytics"
                     ]
                 ]
             ],
@@ -202,15 +202,15 @@ class ProductSeeder extends Seeder
                 'subscription_tiers' => [
                     'free' => [
                         'price' => 0,
-                        'features' => 'Basic invoicing, simple reports'
+                        'features' => "Basic invoicing system|Expense tracking|Customer management|Simple income reports|Manual tax calculation|Receipt storage"
                     ],
                     'basic' => [
                         'price' => 1999,
-                        'features' => 'Full accounting, KRA integration, monthly reconciliation'
+                        'features' => "Full double-entry bookkeeping|KRA tax integration|Monthly financial statements|Bank reconciliation system|Invoice and receipt generation|Payment tracking system|Expense categorization|Monthly profit & loss reports|Vendor management"
                     ],
                     'premium' => [
                         'price' => 4999,
-                        'features' => 'Multi-company accounting, tax compliance, audit trail'
+                        'features' => "Multi-company accounting operations|Full tax compliance features|Advanced financial analysis tools|Budgeting and forecasting|Automated bank feeds|Transaction matching system|Comprehensive audit trails|User activity logging|Multi-user with role management"
                     ]
                 ]
             ],
@@ -227,15 +227,15 @@ class ProductSeeder extends Seeder
                 'subscription_tiers' => [
                     'free' => [
                         'price' => 0,
-                        'features' => 'Up to 500 items, basic tracking'
+                        'features' => "Basic inventory tracking up to 500 items|Manual stock entry|Simple balance reports|Monthly reorder tracking|Basic supplier list|Email notifications"
                     ],
                     'basic' => [
                         'price' => 1499,
-                        'features' => 'Up to 5000 items, barcodes, reorder alerts'
+                        'features' => "Support for up to 5000 items|Barcode generation and scanning|Automated reorder alerts|Purchase order generation|Supplier management system|Stock movement reports|Inventory aging analysis|Mobile app access|Weekly performance reports"
                     ],
                     'premium' => [
                         'price' => 3999,
-                        'features' => 'Unlimited items, mobile app, supplier integration, analytics'
+                        'features' => "Unlimited item capacity|Multi-location warehouse management|Serialization support|Supplier integration for automated ordering|Advanced demand forecasting|Inventory optimization tools|Real-time synchronization|Mobile app with offline capability|Advanced analytics dashboard"
                     ]
                 ]
             ],
