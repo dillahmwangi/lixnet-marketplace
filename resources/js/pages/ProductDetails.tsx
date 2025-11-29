@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ArrowLeft, Check, Star, StarHalf, Briefcase, PiggyBank, GraduationCap, Calculator, Truck, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,8 +30,7 @@ interface ProductDetailsType {
 }
 
 interface ProductDetailsProps {
-  productId: number;
-  onBack: () => void;
+  product: ProductDetailsType;
 }
 
 function getProductIcon(categoryName: string) {
@@ -72,58 +71,20 @@ function renderStars(rating: number) {
   return stars;
 }
 
-export function ProductDetails({ productId, onBack }: ProductDetailsProps) {
+export default function ProductDetails({ product }: ProductDetailsProps) {
   const { addItem } = useCart();
-  const [product, setProduct] = useState<ProductDetailsType | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedTier, setSelectedTier] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedTier, setSelectedTier] = useState<string | null>(
+    product.is_subscription ? 'basic' : null
+  );
   const [isAddingToCart, setIsAddingToCart] = useState(false);
 
-  useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`/api/products/${productId}`, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch product');
-        }
-
-        const data = await response.json();
-        setProduct(data.data);
-        
-        // Set default selected tier
-        if (data.data.is_subscription && data.data.subscription_tiers) {
-          setSelectedTier('basic');
-        }
-      } catch (err) {
-        setError('Failed to load product details');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProduct();
-  }, [productId]);
-
-  const handleAddToCart = async (tier: string) => {
-    if (!product) return;
-
+  const handleAddToCart = async (tier?: string) => {
     setIsAddingToCart(true);
     try {
-      // Use the cart context addItem instead of direct axios
       await addItem(product, 1, product.is_subscription ? tier : undefined);
       
-      toast.success(`${product.title} (${tier}) added to cart!`);
+      toast.success(`${product.title}${tier ? ` (${tier})` : ''} added to cart!`);
       
-      // Redirect to cart after a short delay
       setTimeout(() => {
         router.visit('/cart');
       }, 300);
@@ -145,49 +106,11 @@ export function ProductDetails({ productId, onBack }: ProductDetailsProps) {
     premium: 'Premium'
   };
 
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-brand-blue mb-6 hover:text-dark-blue transition"
-        >
-          <ArrowLeft size={20} />
-          Back to Marketplace
-        </button>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-blue mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading product details...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !product) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-brand-blue mb-6 hover:text-dark-blue transition"
-        >
-          <ArrowLeft size={20} />
-          Back to Marketplace
-        </button>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <p className="text-red-600">{error || 'Product not found'}</p>
-          <Button onClick={onBack} className="mt-4">Back to Marketplace</Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Header */}
       <button
-        onClick={onBack}
+        onClick={() => window.history.back()}
         className="flex items-center gap-2 text-brand-blue mb-6 hover:text-dark-blue transition font-semibold"
       >
         <ArrowLeft size={20} />
@@ -320,7 +243,7 @@ export function ProductDetails({ productId, onBack }: ProductDetailsProps) {
                 )}
               </Button>
               <Button
-                onClick={onBack}
+                onClick={() => window.history.back()}
                 variant="outline"
                 className="px-8 border-2 border-brand-blue text-brand-blue hover:bg-blue-50"
               >
@@ -337,5 +260,3 @@ export function ProductDetails({ productId, onBack }: ProductDetailsProps) {
     </div>
   );
 }
-
-export default ProductDetails;

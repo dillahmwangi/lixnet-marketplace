@@ -5,7 +5,6 @@ import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MarketplaceLayout } from '@/layouts/marketplace-layout';
 import { ProductCard } from '@/components/marketplace/product-card';
-import { ProductDetails } from './ProductDetails'
 import { router } from '@inertiajs/react';
 import { useAuth } from '@/context/auth-context';
 import toast from 'react-hot-toast';
@@ -33,8 +32,6 @@ interface ApiResponse {
     message: string;
 }
 
-type CurrentPage = 'marketplace' | 'product-details';
-
 export default function Marketplace() {
     const [products, setProducts] = useState<Product[]>([]);
     const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -42,8 +39,6 @@ export default function Marketplace() {
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
-    const [currentPage, setCurrentPage] = useState<CurrentPage>('marketplace');
-    const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
     const { logout, checkAuth, user } = useAuth();
 
     // Fetch products on mount
@@ -134,16 +129,6 @@ export default function Marketplace() {
         toast.success(`Added to cart: ${product.title}`);
     };
 
-    const handleViewDetails = (productId: number) => {
-        setSelectedProductId(productId);
-        setCurrentPage('product-details');
-    };
-
-    const handleBackToMarketplace = () => {
-        setCurrentPage('marketplace');
-        setSelectedProductId(null);
-    };
-
     const renderProductGrid = () => {
         const sortedProducts = filteredProducts.sort((a, b) => a.id - b.id);
 
@@ -219,28 +204,11 @@ export default function Marketplace() {
                         key={product.id}
                         product={product}
                         onAddToCart={handleAddToCart}
-                        onViewDetails={handleViewDetails}
                     />
                 ))}
             </div>
         );
     };
-
-    if (currentPage === 'product-details' && selectedProductId) {
-        return (
-            <MarketplaceLayout
-                onSearch={handleSearch}
-                onCategoryFilter={handleCategoryFilter}
-                onCartClick={handleCartClick}
-                onLoginClick={handleLoginClick}
-            >
-                <ProductDetails
-                    productId={selectedProductId}
-                    onBack={handleBackToMarketplace}
-                />
-            </MarketplaceLayout>
-        );
-    }
 
     return (
         <MarketplaceLayout

@@ -198,7 +198,7 @@ Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('admin')->group(
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['web', 'auth', 'customer'])->group(function () {
     // Get available subscription tiers for a product
     Route::get('/subscriptions/tiers/{product}', [SubscriptionController::class, 'getTiers']);
     
@@ -214,6 +214,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Cancel a subscription
     Route::post('/subscriptions/{id}/cancel', [SubscriptionController::class, 'cancel']);
 
-    // Change/Upgrade/Downgrade subscription tier (NEW)
+    // Change/Upgrade/Downgrade subscription tier
     Route::post('/subscriptions/{id}/change-tier', [SubscriptionController::class, 'changeTier']);
 });
