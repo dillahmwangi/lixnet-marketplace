@@ -61,6 +61,8 @@ Route::get('/my-subscriptions', function () {
     return Inertia::render('UserSubscriptions');
 })->middleware(['auth'])->name('subscriptions.index');
 
+
+
 /*
 |--------------------------------------------------------------------------
 | Customer Only Routes
@@ -136,16 +138,6 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
             'userId' => $userId,
         ]);
     })->name('userdetails');
-
-    Route::get('agent-applications', function () {
-        return Inertia::render('admin/agent-applications/index');
-    })->name('agent-applications');
-
-    Route::get('agent-applications/{application}', function (AgentApplication $application) {
-        return Inertia::render('admin/agent-applications/show', [
-            'applicationId' => $application->id,
-        ]);
-    })->name('agent-applications.show');
 
     // Categories management
     Route::get('categories', function () {

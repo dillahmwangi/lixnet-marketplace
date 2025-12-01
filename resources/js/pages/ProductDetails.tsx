@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ArrowLeft, Check, Star, StarHalf, Briefcase, PiggyBank, GraduationCap, Calculator, Truck, ShoppingBag, CheckCircle2 } from 'lucide-react';
+import * as React from 'react';
+import { ArrowLeft, Check, Star, StarHalf, Briefcase, PiggyBank, GraduationCap, Calculator, Truck, ShoppingBag, CheckCircle2, ExternalLink, Loader } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { JSX } from 'react';
@@ -43,11 +44,9 @@ function getProductIcon(categoryName: string) {
     'Inventory': <Truck className='size-24 text-brand-blue' />,
   };
 
-  const iconClass = Object.entries(iconMap).find(([key]) =>
+  return Object.entries(iconMap).find(([key]) =>
     categoryName.toLowerCase().includes(key.toLowerCase())
   )?.[1] || <Briefcase />;
-
-  return iconClass;
 }
 
 function renderStars(rating: number) {
@@ -71,9 +70,37 @@ function renderStars(rating: number) {
   return stars;
 }
 
-// Helper function to parse features
 function parseFeatures(featuresString: string): string[] {
   return featuresString.split('|').map(f => f.trim()).filter(f => f);
+}
+
+/**
+ * Get CSRF token from multiple sources
+ */
+function getCsrfToken(): string {
+  // Method 1: Try meta tag (most common in Laravel)
+  const tokenElement = document.querySelector('meta[name="csrf-token"]');
+  if (tokenElement) {
+    const token = tokenElement.getAttribute('content');
+    if (token) {
+      return token;
+    }
+  }
+
+  // Method 2: Try from cookie (Laravel stores as XSRF-TOKEN)
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'XSRF-TOKEN') {
+      try {
+        return decodeURIComponent(value);
+      } catch (e) {
+        console.error('Failed to decode XSRF-TOKEN cookie:', e);
+      }
+    }
+  }
+
+  return '';
 }
 
 export default function ProductDetails({ product }: ProductDetailsProps) {
@@ -82,6 +109,46 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     product.is_subscription ? 'basic' : null
   );
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [checkingSubscription, setCheckingSubscription] = useState(true);
+
+  // Check if user has active subscription to this product
+  React.useEffect(() => {
+    checkUserSubscription();
+  }, [product.id]);
+
+  const checkUserSubscription = async () => {
+    try {
+      setCheckingSubscription(true);
+      const response = await fetch('/api/subscriptions', {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        setHasActiveSubscription(false);
+        return;
+      }
+
+      const data = await response.json();
+      const subscriptions = data.data?.data || data.data || [];
+      
+      // Check if user has active subscription to this product
+      const hasSubscription = subscriptions.some(
+        (sub: any) => sub.product_id === product.id && sub.status === 'active'
+      );
+      
+      setHasActiveSubscription(hasSubscription);
+    } catch (error) {
+      console.error('Error checking subscription:', error);
+      setHasActiveSubscription(false);
+    } finally {
+      setCheckingSubscription(false);
+    }
+  };
 
   const handleAddToCart = async (tier?: string) => {
     setIsAddingToCart(true);
@@ -98,6 +165,53 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
       toast.error(error.response?.data?.message || 'Failed to add to cart');
     } finally {
       setIsAddingToCart(false);
+    }
+  };
+
+  /**
+   * Handle SSO Redirect
+   * Uses GET request to bypass CSRF entirely and opens in new tab
+   */
+  const handleOpenProduct = async () => {
+    try {
+      setIsRedirecting(true);
+
+      // Fetch the redirect URL from your backend using GET (no CSRF needed)
+      const response = await fetch(`/api/sso/redirect/${product.id}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        let errorMessage = `Failed to access product (${response.status})`;
+        
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          // Ignore JSON parse errors
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.redirect_url) {
+        // Direct navigation to new tab bypasses CORS
+        window.open(data.redirect_url, '_blank');
+        toast.success('Opening product in new tab...');
+      } else {
+        throw new Error(data.message || 'Failed to redirect');
+      }
+    } catch (error: any) {
+      console.error('SSO Redirect Error:', error);
+      toast.error(error.message || 'Failed to open product. Please try again.');
+    } finally {
+      setIsRedirecting(false);
     }
   };
 
@@ -161,8 +275,37 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
 
             {/* Note */}
             {product.note && (
-              <div className="bg-blue-50 border-l-4 border-brand-blue p-4 rounded-r">
+              <div className="bg-blue-50 border-l-4 border-brand-blue p-4 rounded-r mb-6">
                 <p className="text-dark-blue font-semibold">{product.note}</p>
+              </div>
+            )}
+
+            {/* ===== SSO "OPEN PRODUCT" BUTTON - ONLY FOR SUBSCRIBED USERS ===== */}
+            {product.is_subscription && hasActiveSubscription && !checkingSubscription && (
+              <div className="pt-6 border-t border-border-color">
+                <p className="text-sm text-gray-600 mb-3">
+                  You have an active subscription. Access the product:
+                </p>
+                <Button
+                  onClick={handleOpenProduct}
+                  disabled={isRedirecting}
+                  className="bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold flex items-center gap-2 transition"
+                >
+                  {isRedirecting ? (
+                    <>
+                      <Loader className="w-5 h-5 animate-spin" />
+                      Opening...
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="w-5 h-5" />
+                      Access Product
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-gray-500 mt-2">
+                  Opens in a new tab with your subscription details
+                </p>
               </div>
             )}
           </div>
@@ -240,7 +383,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
               <Button
                 onClick={() => handleAddToCart(selectedTier)}
                 disabled={isAddingToCart}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-4 rounded-lg font-bold text-lg"
+                className="flex-1 bg-brand-blue hover:bg-dark-blue text-white py-4 rounded-lg font-bold text-lg"
               >
                 {isAddingToCart ? (
                   <div className="flex items-center">

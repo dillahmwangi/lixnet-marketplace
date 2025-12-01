@@ -3,9 +3,6 @@
 use App\Http\Controllers\Admin\AgentApplicationController as AdminAgentApplicationController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\AdminUserController;
-use App\Http\Controllers\Agent\DashboardController;
-use App\Http\Controllers\Agent\SalesController;
-use App\Http\Controllers\Agent\ProfileController;
 use App\Http\Controllers\AgentApplicationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PesapalCallbackController;
@@ -16,14 +13,22 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\JobApplicationController;
 use App\Http\Controllers\SubscriptionController;
+use App\Http\Controllers\SSOProductController;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
 
 
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "api" middleware group. Make something great!
+|
 */
 
 /*
@@ -36,14 +41,15 @@ Route::middleware(['web', 'auth'])->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// Categories
+// Categories - Public access
 Route::prefix('categories')->group(function () {
     Route::get('/', [CategoryController::class, 'index']);
     Route::get('/{category}', [CategoryController::class, 'show']);
     Route::get('/slug/{slug}', [CategoryController::class, 'showBySlug']);
 });
 
-// Products - IMPORTANT: Specific routes BEFORE generic {product} route
+// Products - Public access
+// IMPORTANT: Specific routes BEFORE generic {product} route
 Route::prefix('products')->group(function () {
     Route::get('/', [ProductController::class, 'index']);
     Route::post('/', [ProductController::class, 'store'])->middleware(['auth', 'admin']);
@@ -56,22 +62,23 @@ Route::prefix('products')->group(function () {
     Route::delete('/{product}', [ProductController::class, 'destroy'])->middleware(['auth', 'admin']);
 });
 
+// Cart - Public view
 Route::prefix('cart')->group(function () {
     Route::get('/view', [CartController::class, 'index']);
 });
 
-// Jobs (public access)
+// Jobs - Public access
 Route::prefix('jobs')->group(function () {
     Route::get('/', [JobController::class, 'index']);
     Route::get('/{job}', [JobController::class, 'show']);
 });
 
-// Job applications (public)
+// Job applications - Public access (guests can apply)
 Route::prefix('job-applications')->group(function () {
     Route::post('/', [JobApplicationController::class, 'store']);
 });
 
-// Pesapal callback routes (must be public for webhook access)
+// Pesapal callback routes - Must be public for webhook access
 Route::prefix('pesapal')->group(function () {
     Route::match(['get', 'post'], '/callback', [PesapalCallbackController::class, 'handleCallback']);
     Route::get('/confirm', [PesapalCallbackController::class, 'confirmPayment']);
@@ -79,12 +86,13 @@ Route::prefix('pesapal')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Customer API Routes
+| Customer API Routes (Authenticated)
 |--------------------------------------------------------------------------
 */
 
 Route::middleware(['web', 'auth', 'customer'])->group(function () {
-    // Cart management
+
+    // Cart management - Authenticated customers
     Route::prefix('cart')->group(function () {
         Route::get('/get', [CartController::class, 'index']);
         Route::post('/add', [CartController::class, 'addItem']);
@@ -93,7 +101,7 @@ Route::middleware(['web', 'auth', 'customer'])->group(function () {
         Route::delete('/clear', [CartController::class, 'clear']);
     });
 
-    // Order management
+    // Order management - Authenticated customers
     Route::prefix('orders')->group(function () {
         Route::get('/get', [OrderController::class, 'index']);
         Route::post('/', [OrderController::class, 'store']);
@@ -101,7 +109,7 @@ Route::middleware(['web', 'auth', 'customer'])->group(function () {
         Route::post('/{order}/pay', [OrderController::class, 'initiatePayment']);
     });
 
-    // User management
+    // User profile management - Authenticated customers
     Route::prefix('user')->group(function () {
         Route::get('/profile', [UserController::class, 'getProfile']);
         Route::put('/profile', [UserController::class, 'updateProfile']);
@@ -112,30 +120,57 @@ Route::middleware(['web', 'auth', 'customer'])->group(function () {
         Route::put('/change-password', [UserController::class, 'changePassword']);
     });
 
-    // Agent application management
+    // Agent application management - Authenticated customers
     Route::prefix('agent-application')->group(function () {
         Route::get('/status', [AgentApplicationController::class, 'status']);
         Route::post('/submit', [AgentApplicationController::class, 'submit']);
     });
-});
 
-/*
-|--------------------------------------------------------------------------
-| Agent Only API Routes
-|--------------------------------------------------------------------------
-*/
+    // Subscription management - Authenticated customers
+    Route::prefix('subscriptions')->group(function () {
+        Route::get('/tiers/{product}', [SubscriptionController::class, 'getTiers']);
+        Route::post('/', [SubscriptionController::class, 'subscribe']);
+        Route::get('/', [SubscriptionController::class, 'getUserSubscriptions']);
+        Route::get('/{id}', [SubscriptionController::class, 'show']);
+        Route::post('/{id}/cancel', [SubscriptionController::class, 'cancel']);
+        Route::post('/{id}/change-tier', [SubscriptionController::class, 'changeTier']);
+    });
 
-Route::middleware(['web', 'auth', 'agent'])->prefix('agent')->name('agent.')->group(function () {
-    // Dashboard
-    Route::get('dashboard-ui', [DashboardController::class, 'index'])->name('dashboard-ui');
+    // SSO Product Routes - Authenticated customers only
+    Route::prefix('sso')->name('sso.')->group(function () {
+        
+        // Get available subscription products
+        Route::get('/available-products', [SSOProductController::class, 'getAvailableProducts'])
+            ->name('available-products');
+        
+        // Get user's current subscriptions
+        Route::get('/my-subscriptions', [SSOProductController::class, 'getMySubscriptions'])
+            ->name('my-subscriptions');
+        
+        // Get product details with subscription info
+        Route::get('/product/{productId}', [SSOProductController::class, 'getProductDetails'])
+            ->where('productId', '[0-9]+')
+            ->name('product-details');
+        
+        // SSO Redirect - GET request (no CSRF needed for GET)
+        // Frontend uses GET to avoid CSRF token issues
+        Route::get('/redirect/{productId}', [SSOProductController::class, 'redirectToProduct'])
+            ->where('productId', '[0-9]+')
+            ->name('redirect-get');
+        
+        // SSO Redirect - POST request with CSRF bypass (fallback for POST)
+        Route::post('/redirect/{productId}', [SSOProductController::class, 'redirectToProduct'])
+            ->where('productId', '[0-9]+')
+            ->name('redirect-post')
+            ->withoutMiddleware('App\Http\Middleware\VerifyCsrfToken');
+        
+        // Validate SSO token - Can be called by external products
+        // CSRF bypassed for external integration
+        Route::post('/validate-token', [SSOProductController::class, 'validateToken'])
+            ->name('validate-token')
+            ->withoutMiddleware('App\Http\Middleware\VerifyCsrfToken');
+    });
 
-    // Profile
-    Route::get('profile', [ProfileController::class, 'show'])->name('profile.show');
-    Route::put('profile', [ProfileController::class, 'update'])->name('profile.update');
-
-    // Sales
-    Route::get('sales-data', [SalesController::class, 'index'])->name('sales.index');
-    Route::get('sales-data/{orderId}', [SalesController::class, 'show'])->name('sales.show');
 });
 
 /*
@@ -145,17 +180,18 @@ Route::middleware(['web', 'auth', 'agent'])->prefix('agent')->name('agent.')->gr
 */
 
 Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('admin')->group(function () {
-    // Dashboard
+
+    // Admin Dashboard
     Route::get('/dashboard', [AdminDashboardController::class, 'index']);
 
-    // Category management (admin only)
+    // Category management - Admin only
     Route::prefix('categories')->group(function () {
         Route::post('/', [CategoryController::class, 'store']);
         Route::put('/{category}', [CategoryController::class, 'update']);
         Route::delete('/{category}', [CategoryController::class, 'destroy']);
     });
 
-    // User management (admin only)
+    // User management - Admin only
     Route::prefix('users')->group(function () {
         Route::get('/', [AdminUserController::class, 'index'])->name('admin.users.index');
         Route::post('/', [AdminUserController::class, 'store'])->name('admin.users.store');
@@ -164,7 +200,7 @@ Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('admin')->group(
         Route::get('/{user}/orders', [AdminUserController::class, 'orders'])->name('admin.users.orders');
     });
 
-    // Agent management (admin only)
+    // Agent applications management - Admin only
     Route::prefix('agent-applications')->group(function () {
         Route::get('/list', [AdminAgentApplicationController::class, 'index'])->name('admin.agent-applications.index');
         Route::get('/details/{application}', [AdminAgentApplicationController::class, 'show'])->name('admin.agent-applications.show');
@@ -173,7 +209,7 @@ Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('admin')->group(
         Route::get('/{application}/documents/{documentType}', [AdminAgentApplicationController::class, 'downloadDocument'])->name('admin.agent-applications.download-documents');
     });
 
-    // Job management (admin only)
+    // Job management - Admin only
     Route::prefix('jobs')->group(function () {
         Route::get('/', [JobController::class, 'adminIndex']);
         Route::post('/', [JobController::class, 'store']);
@@ -182,7 +218,7 @@ Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('admin')->group(
         Route::delete('/{job}', [JobController::class, 'destroy']);
     });
 
-    // Job applications management (admin only)
+    // Job applications management - Admin only
     Route::prefix('job-applications')->group(function () {
         Route::get('/', [JobApplicationController::class, 'index']);
         Route::get('/{application}', [JobApplicationController::class, 'show']);
@@ -190,30 +226,5 @@ Route::middleware(['web', 'auth', 'verified', 'admin'])->prefix('admin')->group(
         Route::delete('/{application}', [JobApplicationController::class, 'destroy']);
         Route::get('/{application}/download-resume', [JobApplicationController::class, 'downloadResume']);
     });
-});
 
-/*
-|--------------------------------------------------------------------------
-| Subscription Routes (Authenticated)
-|--------------------------------------------------------------------------
-*/
-
-Route::middleware(['web', 'auth', 'customer'])->group(function () {
-    // Get available subscription tiers for a product
-    Route::get('/subscriptions/tiers/{product}', [SubscriptionController::class, 'getTiers']);
-    
-    // Create a new subscription
-    Route::post('/subscriptions', [SubscriptionController::class, 'subscribe']);
-    
-    // Get all user's subscriptions (with optional status filter)
-    Route::get('/subscriptions', [SubscriptionController::class, 'getUserSubscriptions']);
-    
-    // Get single subscription details
-    Route::get('/subscriptions/{id}', [SubscriptionController::class, 'show']);
-    
-    // Cancel a subscription
-    Route::post('/subscriptions/{id}/cancel', [SubscriptionController::class, 'cancel']);
-
-    // Change/Upgrade/Downgrade subscription tier
-    Route::post('/subscriptions/{id}/change-tier', [SubscriptionController::class, 'changeTier']);
 });
