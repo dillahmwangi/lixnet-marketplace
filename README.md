@@ -68,6 +68,15 @@ Laravel provides the backend, while React (via the official Laravel frontend sca
 
 
 
+
+
+
+
+
+
+
+
+
    # Central Marketplace SSO Architecture and Subscription Flow
 
 This document provides a technical overview of a centralized Single Sign-On (SSO) system and subscription-based access model for a multi-product software ecosystem. The marketplace serves as the identity provider (IdP), while each connected product (e.g., Payroll, HR, Accounting) functions as a service provider (SP) that relies on marketplace-issued authentication tokens.
