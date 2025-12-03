@@ -83,6 +83,13 @@ Route::middleware(['auth', 'customer'])->group(function () {
         return Inertia::render('user/Orders');
     })->name('orders');
 
+    // Individual order detail page - MUST be after /orders to avoid route conflicts
+    Route::get('/orders/{id}', function ($id) {
+        return Inertia::render('user/OrderDetail', [
+            'orderId' => $id,
+        ]);
+    })->name('orders.show');
+
     Route::get('/sales-registration', function () {
         return Inertia::render('user/SalesRegistration');
     });
@@ -189,6 +196,8 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
         return Inertia::render('admin/job-applications');
     })->name('job-applications');
 });
+
+
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
