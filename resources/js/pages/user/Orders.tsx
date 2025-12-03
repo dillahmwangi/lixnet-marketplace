@@ -42,14 +42,13 @@ interface OrderItem {
         };
     };
     quantity: number;
-    // price: number;
     unit_price: number;
 }
 
 interface Order {
     id: string;
     order_reference: string;
-    status: 'pending' | 'completed' | 'cancelled' | 'failed';
+    status: 'pending' | 'completed' | 'cancelled' | 'failed' | 'paid';
     total_amount: number;
     created_at: string;
     updated_at: string;
@@ -73,9 +72,34 @@ export default function Orders() {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
 
     useEffect(() => {
         checkAuth();
+    }, []);
+
+    // Check for payment status in URL query params
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const status = params.get('payment');
+        
+        if (status) {
+            setPaymentStatus(status);
+            
+            // Show toast notification based on payment status
+            if (status === 'success') {
+                toast.success('✅ Payment successful! Your order has been processed.');
+            } else if (status === 'failed') {
+                toast.error('❌ Payment failed. Please try again.');
+            } else if (status === 'cancelled') {
+                toast.error('⚠️ Payment was cancelled.');
+            } else if (status === 'pending') {
+                toast.loading('⏳ Payment is still pending. Please wait...');
+            }
+
+            // Clear the query params from URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
     }, []);
 
     useEffect(() => {
@@ -171,12 +195,10 @@ export default function Orders() {
     };
 
     const handleLoginClick = () => {
-        // log out user from previous session if available or redirect to login
         user ? logout() : router.visit('/login');
     };
 
     const handleCartClick = () => {
-        // navigate to cart
         router.visit('/cart');
     };
 
@@ -243,7 +265,6 @@ export default function Orders() {
                 <div className="mb-4">
                     <Breadcrumbs
                         items={[
-                            // { label: 'Home', href: '/' },
                             { label: 'Profile', href: '/profile' },
                             { label: 'Orders' }
                         ]}
@@ -256,6 +277,41 @@ export default function Orders() {
                         Track and manage your software purchases
                     </p>
                 </div>
+
+                {/* Payment Status Alert */}
+                {paymentStatus === 'success' && (
+                    <Alert className="mb-6 bg-green-50 border-green-200">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <AlertDescription className="text-green-800">
+                            ✅ Payment successful! Your order has been processed and is ready.
+                        </AlertDescription>
+                    </Alert>
+                )}
+                {paymentStatus === 'failed' && (
+                    <Alert className="mb-6 bg-red-50 border-red-200">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        <AlertDescription className="text-red-800">
+                            ❌ Payment failed. Please try again or contact support.
+                        </AlertDescription>
+                    </Alert>
+                )}
+                {paymentStatus === 'cancelled' && (
+                    <Alert className="mb-6 bg-yellow-50 border-yellow-200">
+                        <AlertCircle className="h-4 w-4 text-yellow-600" />
+                        <AlertDescription className="text-yellow-800">
+                            ⚠️ Payment was cancelled. Please try again when ready.
+                        </AlertDescription>
+                    </Alert>
+                )}
+                {paymentStatus === 'pending' && (
+                    <Alert className="mb-6 bg-blue-50 border-blue-200">
+                        <Clock className="h-4 w-4 text-blue-600" />
+                        <AlertDescription className="text-blue-800">
+                            ⏳ Payment is still pending. Please wait while we confirm your payment.
+                        </AlertDescription>
+                    </Alert>
+                )}
+
                 {/* Filters */}
                 <Card className="bg-white border border-slate-200 mb-6 shadow-sm">
                     <CardContent className="pt-6">
@@ -298,6 +354,7 @@ export default function Orders() {
                         </div>
                     </CardContent>
                 </Card>
+
                 {/* Orders List */}
                 {isOrdersLoading ? (
                     <div className="space-y-4">
@@ -442,6 +499,7 @@ export default function Orders() {
                         ))}
                     </div>
                 )}
+
                 {/* Order Details Modal */}
                 {selectedOrder && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -462,7 +520,6 @@ export default function Orders() {
                             <CardContent className="space-y-6 p-6">
                                 {/* Status Section */}
                                 <div className="flex gap-4">
-                                    {/* {getStatusBadge(selectedOrder.status)} */}
                                     {getPaymentStatusBadge(selectedOrder.status)}
                                 </div>
                                 {/* Customer Info */}

@@ -25,32 +25,68 @@ class PesapalCallbackController extends Controller
     }
 
     /**
-     * Handle Pesapal payment callback
-     * POST /api/pesapal/callback
+     * Handle Pesapal payment callback redirect from user browser
+     * GET /api/pesapal/callback?OrderTrackingId=...&OrderMerchantReference=...
+     * 
+     * This is called when user returns from Pesapal payment page
+     * Redirects to confirm endpoint for user-friendly experience
      */
     public function handleCallback(Request $request)
     {
         try {
-            Log::info('Pesapal callback received', [
+            Log::info('Pesapal callback redirect received', [
+                'method' => $request->method(),
+                'query' => $request->query()
+            ]);
+
+            $orderTrackingId = $request->query('OrderTrackingId');
+            
+            if (!$orderTrackingId) {
+                Log::error('Callback redirect missing OrderTrackingId');
+                return redirect(config('app.url') . '/checkout?payment=failed&message=Missing%20tracking%20ID');
+            }
+
+            // Redirect to confirm endpoint which handles the logic
+            return redirect(route('pesapal.confirm', [
+                'OrderTrackingId' => $orderTrackingId,
+                'OrderMerchantReference' => $request->query('OrderMerchantReference')
+            ]));
+        } catch (\Exception $e) {
+            Log::error('Pesapal callback redirect exception: ' . $e->getMessage());
+            return redirect(config('app.url') . '/checkout?payment=failed');
+        }
+    }
+
+    /**
+     * Handle Pesapal IPN webhook callback
+     * GET/POST /api/pesapal/webhook?OrderTrackingId=...
+     * 
+     * This is called by Pesapal's IPN notification system
+     * Should return JSON for webhook acknowledgment (not a redirect)
+     */
+    public function handleWebhook(Request $request)
+    {
+        try {
+            Log::info('Pesapal IPN webhook received', [
                 'method' => $request->method(),
                 'query' => $request->query(),
                 'body' => $request->all()
             ]);
 
-            // Get callback data
-            $callbackData = $request->method() === 'GET' ? $request->query() : $request->all();
+            // Get webhook data
+            $webhookData = $request->method() === 'GET' ? $request->query() : $request->all();
 
-            if (!isset($callbackData['OrderTrackingId'])) {
-                Log::error('Pesapal callback missing OrderTrackingId', $callbackData);
+            if (!isset($webhookData['OrderTrackingId'])) {
+                Log::error('Pesapal webhook missing OrderTrackingId', $webhookData);
                 return response()->json(['error' => 'Missing OrderTrackingId'], 400);
             }
 
-            // Process the callback
-            $callbackResult = $this->pesapalService->processCallback($callbackData);
+            // Process the webhook
+            $callbackResult = $this->pesapalService->processCallback($webhookData);
 
             if (!$callbackResult['success']) {
-                Log::error('Failed to process Pesapal callback', $callbackResult);
-                return response()->json(['error' => 'Callback processing failed'], 500);
+                Log::error('Failed to process Pesapal webhook', $callbackResult);
+                return response()->json(['error' => 'Webhook processing failed'], 500);
             }
 
             // DIAGNOSTIC: Log full transaction details
@@ -107,22 +143,22 @@ class PesapalCallbackController extends Controller
 
                 $order->update($updateData);
 
-                Log::info('Order status updated from callback', [
+                Log::info('Order status updated from webhook', [
                     'order_id' => $order->id,
                     'order_reference' => $order->order_reference,
                     'new_status' => $finalOrderStatus,
                     'payment_reference' => $callbackResult['order_tracking_id'],
-                    'reason' => 'Callback processing'
+                    'reason' => 'IPN webhook processing'
                 ]);
 
                 // If payment was successful, create subscriptions for subscription products
                 if ($finalOrderStatus === 'paid') {
-                    Log::info('✅ Payment confirmed, creating subscriptions from order', [
+                    Log::info('✅ Payment confirmed via webhook, creating subscriptions from order', [
                         'order_id' => $order->id
                     ]);
                     $this->createSubscriptionsFromOrder($order);
                 } else {
-                    Log::warning('⚠️ Payment not confirmed, subscriptions NOT created', [
+                    Log::warning('⚠️ Payment not confirmed via webhook, subscriptions NOT created', [
                         'order_id' => $order->id,
                         'order_status' => $finalOrderStatus
                     ]);
@@ -130,18 +166,19 @@ class PesapalCallbackController extends Controller
 
                 DB::commit();
 
+                // Return JSON response for webhook acknowledgment
                 return response()->json([
                     'success' => true,
-                    'message' => 'Callback processed successfully',
+                    'message' => 'Webhook processed successfully',
                     'order_status' => $finalOrderStatus
                 ]);
             } catch (\Exception $e) {
                 DB::rollBack();
-                Log::error('Error processing callback transaction: ' . $e->getMessage());
+                Log::error('Error processing webhook transaction: ' . $e->getMessage());
                 throw $e;
             }
         } catch (\Exception $e) {
-            Log::error('Pesapal callback exception: ' . $e->getMessage(), [
+            Log::error('Pesapal webhook exception: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
 
@@ -153,7 +190,10 @@ class PesapalCallbackController extends Controller
 
     /**
      * Handle payment confirmation page redirect
-     * GET /api/pesapal/confirm
+     * GET /api/pesapal/confirm?OrderTrackingId=...&OrderMerchantReference=...
+     * 
+     * This endpoint shows user a friendly page with order status
+     * Redirects user to their order page with appropriate status message
      */
     public function confirmPayment(Request $request)
     {
@@ -161,14 +201,14 @@ class PesapalCallbackController extends Controller
             $orderTrackingId = $request->query('OrderTrackingId');
             $orderMerchantReference = $request->query('OrderMerchantReference');
 
-            Log::info('Payment confirmation received', [
+            Log::info('Payment confirmation page accessed', [
                 'order_tracking_id' => $orderTrackingId,
                 'merchant_reference' => $orderMerchantReference
             ]);
 
             if (!$orderTrackingId) {
                 Log::warning('Confirmation missing OrderTrackingId');
-                return redirect(config('app.url') . '/checkout?payment=failed');
+                return redirect(config('app.url') . '/checkout?payment=failed&message=Missing%20tracking%20ID');
             }
 
             // Find the order
@@ -176,7 +216,7 @@ class PesapalCallbackController extends Controller
 
             if (!$order) {
                 Log::warning('Order not found during confirmation', ['order_tracking_id' => $orderTrackingId]);
-                return redirect(config('app.url') . '/checkout?payment=failed');
+                return redirect(config('app.url') . '/checkout?payment=failed&message=Order%20not%20found');
             }
 
             // Get latest transaction status from Pesapal
@@ -211,7 +251,7 @@ class PesapalCallbackController extends Controller
                     $newStatus = 'paid';
                 }
 
-                Log::info('Updating order status from confirmation', [
+                Log::info('Updating order status from confirmation page', [
                     'order_id' => $order->id,
                     'old_status' => $order->status,
                     'new_status' => $newStatus,
@@ -245,9 +285,8 @@ class PesapalCallbackController extends Controller
                 }
             }
 
-            // Redirect to frontend with status
-            $baseUrl = config('app.url');
-            $redirectUrl = $baseUrl . '/orders/' . $order->id;
+            // Redirect to order details page with status
+            $redirectUrl = config('app.url') . '/orders/' . $order->id;
 
             if ($order->status === 'paid') {
                 $redirectUrl .= '?payment=success';
@@ -261,18 +300,20 @@ class PesapalCallbackController extends Controller
 
             Log::info('Redirecting user after payment confirmation', [
                 'redirect_url' => $redirectUrl,
-                'order_status' => $order->status
+                'order_status' => $order->status,
+                'order_id' => $order->id
             ]);
 
             return redirect($redirectUrl);
         } catch (\Exception $e) {
             Log::error('Payment confirmation exception: ' . $e->getMessage());
-            return redirect(config('app.url') . '/checkout?payment=failed');
+            return redirect(config('app.url') . '/checkout?payment=failed&message=An%20error%20occurred');
         }
     }
 
     /**
      * Create subscriptions for subscription products in the order
+     * Private helper method called after payment confirmation
      */
     private function createSubscriptionsFromOrder(Order $order): void
     {

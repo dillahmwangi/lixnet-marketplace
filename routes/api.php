@@ -80,8 +80,14 @@ Route::prefix('job-applications')->group(function () {
 
 // Pesapal callback routes - Must be public for webhook access
 Route::prefix('pesapal')->group(function () {
-    Route::match(['get', 'post'], '/callback', [PesapalCallbackController::class, 'handleCallback']);
-    Route::get('/confirm', [PesapalCallbackController::class, 'confirmPayment']);
+    // User browser redirect after payment completes (user-facing, redirects to order page)
+    Route::get('/callback', [PesapalCallbackController::class, 'handleCallback'])->name('pesapal.callback');
+    
+    // Pesapal IPN webhook notifications (backend silent notification)
+    Route::match(['get', 'post'], '/webhook', [PesapalCallbackController::class, 'handleWebhook'])->name('pesapal.webhook');
+    
+    // Payment confirmation page (user-facing, shows order status)
+    Route::get('/confirm', [PesapalCallbackController::class, 'confirmPayment'])->name('pesapal.confirm');
 });
 
 /*

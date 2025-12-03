@@ -58,11 +58,11 @@ class ProductSeeder extends Seeder
                         'features' => "Basic member profile management|Manual savings account tracking|Simple transaction recording|Monthly member statements|Basic member search functionality|Contact information storage"
                     ],
                     'basic' => [
-                        'price' => 3999,
+                        'price' => 1,
                         'features' => "Support for up to 500 members|Loan application workflow|Automated interest calculations|Savings account management|Dividend eligibility tracking|Member portfolio analysis|Payment reminder system|Monthly financial summaries|Member communication notifications"
                     ],
                     'premium' => [
-                        'price' => 8999,
+                        'price' => 2,
                         'features' => "Unlimited member capacity|SASRA-compliant regulatory reporting|Sophisticated dividend distribution engine|Advanced risk assessment tools|Real-time financial dashboards|Multi-branch management support|Member mobile access portal|Automated compliance audits|Dedicated account manager support"
                     ]
                 ]
@@ -82,11 +82,11 @@ class ProductSeeder extends Seeder
                         'features' => "Basic loan tracking up to 50 loans|Simple application forms|Manual payment recording|Monthly loan status reports|Basic borrower statements|Email notifications"
                     ],
                     'basic' => [
-                        'price' => 2999,
+                        'price' => 1,
                         'features' => "Support for up to 500 active loans|M-Pesa payment integration|Flexible repayment schedules|Automated interest calculations|Loan documentation management|Weekly collection reports|Payment reminder system|Portfolio performance analysis|Borrower communication system"
                     ],
                     'premium' => [
-                        'price' => 6499,
+                        'price' => 2,
                         'features' => "Unlimited loan capacity|Advanced M-Pesa and payment integrations|Multiple interest calculation methods|Automated SMS payment reminders|Advanced credit scoring system|Risk assessment and analytics|Multi-channel payment processing|Delinquency management tools|Comprehensive financial reporting"
                     ]
                 ]
@@ -107,11 +107,11 @@ class ProductSeeder extends Seeder
                         'features' => "Basic student database for up to 100 students|Simple class management|Manual exam entry|Basic attendance marking|Monthly summary reports|Contact information storage"
                     ],
                     'basic' => [
-                        'price' => 3500,
+                        'price' => 1,
                         'features' => "Support for up to 500 students|Advanced academic tracking system|Continuous assessment recording|Fee management and tracking|Examination result compilation|Digital report card generation|Parent access portal|Class performance analytics|Payment history tracking"
                     ],
                     'premium' => [
-                        'price' => 7999,
+                        'price' => 2,
                         'features' => "Unlimited student capacity|Comprehensive parent portal with real-time updates|Online fee payment integration|Advanced examination analytics|Performance tracking and trending|Staff evaluation features|Payroll integration support|Customizable report cards|Mobile app access for parents"
                     ]
                 ]

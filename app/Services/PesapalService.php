@@ -90,6 +90,9 @@ class PesapalService
 
     /**
      * Submit order request to Pesapal
+     * Sends two URLs:
+     * - callback_url: Where Pesapal redirects USER (browser)
+     * - notification_id: Where Pesapal sends IPN notifications (backend)
      */
     public function submitOrderRequest(array $orderData): array
     {
@@ -108,15 +111,19 @@ class PesapalService
                 ];
             }
 
+            // Build the callback URL - This is where Pesapal redirects the USER
+            // After payment, user's browser is redirected to this URL
+            $callbackUrl = config('app.url') . '/api/pesapal/callback';
+
             // Prepare the payload
             $payload = [
                 'id' => $orderData['id'],
                 'currency' => $orderData['currency'] ?? 'KES',
                 'amount' => (float)$orderData['amount'],
                 'description' => $orderData['description'] ?? 'Payment for order',
-                'callback_url' => $orderData['callback_url'] ?? config('pesapal.callback_url'),
+                'callback_url' => $callbackUrl,  // User browser redirect URL
                 'redirect_mode' => $orderData['redirect_mode'] ?? config('pesapal.redirect_mode'),
-                'notification_id' => $this->notificationId,
+                'notification_id' => $this->notificationId,  // IPN webhook notification ID
             ];
 
             // Add billing address if provided
@@ -124,7 +131,12 @@ class PesapalService
                 $payload['billing_address'] = $orderData['billing_address'];
             }
 
-            Log::info('Pesapal payload', ['payload' => $payload]);
+            Log::info('Pesapal order request payload', [
+                'callback_url' => $callbackUrl,
+                'notification_id' => $this->notificationId,
+                'amount' => $payload['amount'],
+                'currency' => $payload['currency']
+            ]);
 
             $response = Http::withoutVerifying()
                 ->withHeaders([
@@ -183,7 +195,7 @@ class PesapalService
     public function getTransactionStatus(string $orderTrackingId): array
     {
         try {
-            Log::info('Getting transaction status', [
+            Log::info('Getting transaction status from Pesapal', [
                 'order_tracking_id' => $orderTrackingId
             ]);
 
@@ -212,7 +224,8 @@ class PesapalService
                 
                 Log::info('Transaction status retrieved', [
                     'order_tracking_id' => $orderTrackingId,
-                    'payment_status_code' => $data['payment_status_code'] ?? null
+                    'payment_status_code' => $data['payment_status_code'] ?? null,
+                    'payment_status_description' => $data['payment_status_description'] ?? null
                 ]);
 
                 return [
@@ -232,7 +245,7 @@ class PesapalService
                 ];
             }
 
-            Log::error('Failed to get transaction status', [
+            Log::error('Failed to get transaction status from Pesapal', [
                 'status' => $response->status(),
                 'body' => $response->body()
             ]);
@@ -253,12 +266,13 @@ class PesapalService
     }
 
     /**
-     * Process payment callback from Pesapal
+     * Process payment callback/webhook from Pesapal
+     * Maps Pesapal status codes to our order statuses
      */
     public function processCallback(array $callbackData): array
     {
         try {
-            Log::info('Processing Pesapal callback', $callbackData);
+            Log::info('Processing Pesapal callback/webhook', $callbackData);
 
             if (!isset($callbackData['OrderTrackingId'])) {
                 Log::error('Callback missing OrderTrackingId', $callbackData);
@@ -293,7 +307,7 @@ class PesapalService
                 3 => 'cancelled'
             ];
 
-            // FIX: Handle empty string and null values properly
+            // Handle empty string and null values properly
             $paymentStatusCode = $transactionStatus['payment_status_code'];
             
             // Convert empty string to 0
@@ -310,8 +324,7 @@ class PesapalService
                 'payment_status_code' => $paymentStatusCode,
                 'payment_status_description' => $transactionStatus['payment_status_description'] ?? 'N/A',
                 'confirmation_code' => $transactionStatus['confirmation_code'] ?? 'N/A',
-                'order_status' => $orderStatus,
-                'full_transaction_data' => $transactionStatus
+                'order_status' => $orderStatus
             ]);
 
             return [
@@ -334,13 +347,12 @@ class PesapalService
 
     /**
      * Register IPN URL with Pesapal to get notification ID
-     * POST to: https://cybqa.pesapal.com/pesapalv3/api/URLSetup/RegisterIPN (sandbox)
-     *          https://pay.pesapal.com/v3/api/URLSetup/RegisterIPN (production)
+     * This notification ID should be added to .env as PESAPAL_NOTIFICATION_ID
      */
     public function registerIPN(): array
     {
         try {
-            Log::info('========== REGISTERING IPN URL ==========');
+            Log::info('========== REGISTERING IPN URL WITH PESAPAL ==========');
 
             $token = $this->getAccessToken();
             if (!$token) {
@@ -351,9 +363,10 @@ class PesapalService
                 ];
             }
 
-            $callbackUrl = config('pesapal.callback_url');
+            // IPN webhook URL - Where Pesapal sends backend notifications
+            $webhookUrl = config('app.url') . '/api/pesapal/webhook';
             
-            Log::info('Registering IPN URL', ['url' => $callbackUrl]);
+            Log::info('Registering IPN webhook URL', ['url' => $webhookUrl]);
 
             // Determine the correct IPN registration endpoint
             $isSandbox = config('pesapal.sandbox', true);
@@ -362,11 +375,11 @@ class PesapalService
                 : 'https://pay.pesapal.com/v3/api/URLSetup/RegisterIPN';
 
             $payload = [
-                'url' => $callbackUrl,
+                'url' => $webhookUrl,
                 'ipn_notification_type' => 'GET'
             ];
 
-            Log::info('IPN Registration Request', [
+            Log::info('IPN registration request', [
                 'endpoint' => $ipnEndpoint,
                 'payload' => $payload
             ]);
@@ -406,11 +419,11 @@ class PesapalService
                     'ipn_status_description' => $data['ipn_status_description'] ?? null,
                     'created_date' => $data['created_date'] ?? null,
                     'ipn_notification_type' => $data['ipn_notification_type_description'] ?? 'GET',
-                    'message' => 'âœ… IPN registered successfully! Copy the ipn_id to PESAPAL_NOTIFICATION_ID in your .env file'
+                    'message' => '✅ IPN registered successfully! Copy the ipn_id below to PESAPAL_NOTIFICATION_ID in your .env file'
                 ];
             }
 
-            Log::error('Failed to register IPN', [
+            Log::error('Failed to register IPN with Pesapal', [
                 'status' => $response->status(),
                 'body' => $response->body()
             ]);
@@ -442,7 +455,7 @@ class PesapalService
             $token = $this->getAccessToken();
 
             if ($token) {
-                Log::info('Pesapal connection test successful');
+                Log::info('✅ Pesapal connection test successful');
                 return [
                     'success' => true,
                     'message' => 'Connected to Pesapal successfully',
